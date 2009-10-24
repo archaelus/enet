@@ -53,7 +53,7 @@ void erl_input(int fd, short event, void *ud) {
         exit(2);
     }
 
-    fprintf(stderr, "Writing %d bytes from erlang to tap.\n", data_read);
+    //fprintf(stderr, "Writing %d bytes from erlang to tap.\n", data_read);
     //bufferevent_write(to_erlang, size_buf, 2);
     //bufferevent_write(to_erlang, data_buf, data_read);
     data_written = write(tap_fd, data_buf, data_read);
@@ -71,7 +71,7 @@ void tap_input(int fd, short event, void *ud) {
     size_t packet_len;
     u_char size_buf[2];
 
-    fprintf(stderr, "Tap read event triggered.\n");
+    //fprintf(stderr, "Tap read event triggered.\n");
 
     packet_len = read(tap_fd, packet_buf, MAX_PACKET_SIZE);
     if (packet_len < 0) {
@@ -137,7 +137,7 @@ void tap_init() {
 
 int main() {
     eb = event_init();
-    fprintf(stderr, "Libevent initialized using method '%s'.\n", event_base_get_method(eb));
+    //fprintf(stderr, "Libevent initialized using method '%s'.\n", event_base_get_method(eb));
     erlang_init();
     tap_init();
     
