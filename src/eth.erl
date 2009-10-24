@@ -8,7 +8,7 @@
 -module(eth).
 
 %% API
--export([decode/1, encode/1,
+-export([decode/1, decode/2, encode/1,
          decode_type/1, encode_type/1,
          decode_addr/1, encode_addr/1,
          addr_len/0]).
@@ -19,13 +19,23 @@
 %% API
 %%====================================================================
 
-decode(<<Src:6/binary,
-        Dest:6/binary,
+decode(Packet) ->
+    decode(Packet, decode_data).
+
+decode(<<Dest:6/binary,
+        Src:6/binary,
         Type:16/big,
-        Data/binary>>) ->
+        Data/binary>>, decode_data) ->
     PType = decode_type(Type),
     #eth{src=decode_addr(Src),dst=decode_addr(Dest),
-         type=PType,data=(codec:module(PType)):decode(Data)}.
+         type=PType,data=(codec:module(PType)):decode(Data)};
+decode(<<Dest:6/binary,
+        Src:6/binary,
+        Type:16/big,
+        Data/binary>>, _) ->
+    PType = decode_type(Type),
+    #eth{src=decode_addr(Src),dst=decode_addr(Dest),
+         type=PType,data=Data}.
 
 encode(P = #eth{src=Src}) when is_list(Src) ->
     encode(P#eth{src=encode_addr(Src)});
