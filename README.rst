@@ -25,12 +25,12 @@ Use
 you won't be prompted for a password)
 
 
-(in an erlang shell:)
-1> {ok, Pid, Port} = enet_tap:spawn_listen().
-{ok,<0.33.0>,#Port<0.581>}
+    (in an erlang shell:)
+    1> {ok, Pid, Port} = enet_tap:spawn_listen().
+    {ok,<0.33.0>,#Port<0.581>}
 
 (Now configure the interface as root in another shell:
- # ifconfig tap0 192.168.2.1 netmask 255.255.255.0 broadcast 192.168.2.255 up
+# ifconfig tap0 192.168.2.1 netmask 255.255.255.0 broadcast 192.168.2.255 up
 )
 
 (You should now see decoded traffic in the erlang shell.)
