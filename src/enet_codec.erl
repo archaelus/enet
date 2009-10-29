@@ -5,19 +5,33 @@
 %% @doc Protocol Codec registry
 %% @end
 %%%-------------------------------------------------------------------
--module(codec).
+-module(enet_codec).
 
 %% API
--export([module/1]).
+-export([module/1,
+         decode/2]).
 
 %%====================================================================
 %% API
 %%====================================================================
 
-module(eth) -> eth;
-module(ethernet) -> eth;
-module(arp) -> arp;
-module(ipv4) -> ipv4.
+module(eth) -> enet_eth;
+module(ethernet) -> enet_eth;
+module(arp) -> enet_arp;
+module(ipv4) -> enet_ipv4;
+module(udp) -> enet_udp;
+module(dns) -> enet_dns.
+
+decode(Type, Data) ->
+    try
+        Mod = module(Type),
+        case Mod:decode(Data) of
+        {error, _} -> Data;
+        Decoded -> Decoded
+        end
+    catch
+        _:_ -> Data
+    end.
 
 %%====================================================================
 %% Internal functions

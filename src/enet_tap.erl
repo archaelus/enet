@@ -5,7 +5,7 @@
 %% @doc 
 %% @end
 %%%-------------------------------------------------------------------
--module(tap).
+-module(enet_tap).
 
 %% API
 -export([open/0, test/0, listen/0,
@@ -20,11 +20,23 @@
 %%====================================================================
 
 open() ->
-    P = open_port({spawn, "sudo -E ./c_src/mactap"},
+    P = open_port({spawn, driver()},
                   [{packet, 2},binary,exit_status,
-                   {env, [{"EVENT_NOKQUEUE", "1"},
-                          {"EVENT_NOPOLL", "1"}]}]),
+                   {env, env()}]),
     P.
+
+driver() ->
+    case os:type() of
+        {unix, darwin} ->
+            "sudo -E ./priv/bin/mactap"
+    end.
+
+env() ->
+    case os:type() of
+        {unix, darwin} ->
+            [{"EVENT_NOKQUEUE", "1"},
+             {"EVENT_NOPOLL", "1"}]
+    end.
 
 close(P) ->
     port_close(P).
@@ -62,7 +74,7 @@ listen(P) ->
             try
                 io:format("~p: Received packet: ~p~n",
                           [calendar:local_time(),
-                           eth:decode(Data)])
+                           enet_eth:decode(Data)])
             catch
                 Type:Error ->
                     io:format("~p: Couldn't decode packet ~p~nbecause ~p:~p~nStack ~p~n",
