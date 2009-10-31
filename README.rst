@@ -21,9 +21,9 @@ Drivers
 Use
 ===
 
-For ease of use, you should probably change the ownership of /dev/tapN
+For ease of use, you should probably change the ownership of ``/dev/tapN``
 to yourself, and allow passwordless sudo to the command
-"/sbin/ifconfig tap0 *". You can do this in /etc/sudoers by::
+``/sbin/ifconfig tapN``. You can do this in /etc/sudoers by::
     
     Cmnd_Alias	ENET = /sbin/ifconfig tap0 *
     yourusername ALL=(ALL) NOPASSWD: ENET
