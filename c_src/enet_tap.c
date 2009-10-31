@@ -6,14 +6,27 @@
 #include <assert.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #define MAX_PACKET_SIZE 2048
 
+#define PORT_PROTO_RUNNING 0
+#define PORT_PROTO_PACKET 1
+
 /*
 
-Packet,2 protocol on STDIN/STDOUT
+Protocol:
+ From Erlang (stdin)
+ From Erlang: <<PktSize:16/big, EthernetFrame:(PktSize - 2)/binary>>*
+
+ To Erlang (stdout)
+ To Erlang: ( <<PktSize:16/big, PORT_PROTO_RUNNING>> |
+              <<PktSize:16/big, PORT_PROTO_PACKET,
+                EthernetFrame:(PktSize - 3)/binary>> )*
 
 */
+
+int debug = 0;
 
 struct bufferevent *to_erlang;
 struct bufferevent *from_erlang;
@@ -69,7 +82,6 @@ void erl_input(int fd, short event, void *ud) {
 void tap_input(int fd, short event, void *ud) {
     u_char packet_buf[MAX_PACKET_SIZE];
     size_t packet_len;
-    u_char size_buf[2];
 
     //fprintf(stderr, "Tap read event triggered.\n");
 
@@ -79,12 +91,36 @@ void tap_input(int fd, short event, void *ud) {
         fprintf(stderr, "Couldn't read from the tap.\n");
         exit(6);
     }
+
     if (packet_len > 0) {
-        size_buf[1] = packet_len;
-        size_buf[0] = packet_len >> 8;
-        bufferevent_write(to_erlang, size_buf, 2);
-        bufferevent_write(to_erlang, packet_buf, packet_len);
+        send_to_erlang(packet_buf, packet_len);
     }
+}
+
+void send_to_erlang(u_char *buffer, size_t buffer_len) {
+    size_t erl_pkt_len;
+    u_char size_buf[3];
+
+    size_buf[2] = PORT_PROTO_PACKET;
+
+    erl_pkt_len = buffer_len + 1;
+    size_buf[1] = erl_pkt_len;
+    size_buf[0] = erl_pkt_len >> 8;
+    bufferevent_write(to_erlang, size_buf, 3);
+
+    bufferevent_write(to_erlang, buffer, buffer_len);
+}
+
+void running() {
+    size_t erl_pkt_len;
+    u_char size_buf[3];
+
+    size_buf[2] = PORT_PROTO_RUNNING;
+
+    erl_pkt_len = 1;
+    size_buf[1] = erl_pkt_len;
+    size_buf[0] = erl_pkt_len >> 8;
+    bufferevent_write(to_erlang, size_buf, 3);
 }
 
 void erl_error(int fd, short event, void *ud) {
@@ -100,47 +136,55 @@ void erlang_init() {
 }
 
 void tap_init() {
-    /*
-    u_char arp_request[] = {138,126,111,148,93,233,255,255,255,255,255,255,8,6,0,1,
-                            8,0,6,4,0,1,138,126,111,148,93,233,192,168,3,2,0,0,0,0,
-                            0,0,192,168,3,1};
-    int save_tap_fd;
-    */
-    tap_fd = open("/dev/tap0", O_RDWR);
-    //save_tap_fd = tap_fd;
-
-    if (tap_fd < 0) {
-        perror("open");
-        fprintf(stderr, "Couldn't open /dev/tap0.\n");
-        exit(5);
-    }
-    //fprintf(stderr, "Opened /dev/tap0 as %d.\nSleeping for 30s for debugging.\n", tap_fd);
-
     event_set(&tap, tap_fd, EV_READ | EV_PERSIST, tap_input, NULL);
     if (event_add(&tap, NULL) != 0) {
         fprintf(stderr, "Couldn't add tap event.\n");
         exit(7);
     }
-    //fprintf(stderr, "Added read event for /dev/tap0.\n");
-    /*
-    fprintf(stderr, "/dev/tap0 FD is now %d (was %d).\nSleeping for 30s for debugging.\n", tap_fd, save_tap_fd);
-    sleep(30);
-
-    if (write(tap_fd, arp_request, 42) != 42) {
-        perror("write");
-        fprintf(stderr, "Couldn't write arp request to /dev/tap0.\n");
-        exit(10);
-    }
-    fprintf(stderr, "Wrote arp request to /dev/tap0.\n");
-    */
 }
 
-int main() {
+void usage() {
+    fprintf(stderr, "Usage: mactap -f <device>\n");
+    exit(1);
+}
+
+int main(int argc, char **argv) {
+    int ch;
+
     eb = event_init();
-    //fprintf(stderr, "Libevent initialized using method '%s'.\n", event_base_get_method(eb));
+
+    /* options descriptor */
+    static struct option longopts[] = {
+        { "file", required_argument, NULL, 'f' },
+        { "debug", no_argument, &debug, 'd' },
+        { NULL, 0, NULL, 0 }
+    };
+
+    // Process options
+    while ((ch = getopt_long(argc, argv, "f:", longopts, NULL)) != -1) {
+        switch (ch) {
+        case 'f':
+            //fprintf(stderr, "opening %s.\n", optarg);
+            tap_fd = open(optarg, O_RDWR);
+            if (tap_fd < 0) {
+                perror("open");
+                fprintf(stderr, "Couldn't open %s.\n", optarg);
+                exit(5);
+            }
+            break;
+        case '?':
+        default:
+            usage();
+        }
+    }
+    argc -= optind;
+    argv += optind;
+
     erlang_init();
     tap_init();
     
+    running();
+
     event_loop(0);
     return(0);
 }
