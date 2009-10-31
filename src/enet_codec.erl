@@ -8,8 +8,10 @@
 -module(enet_codec).
 
 %% API
--export([module/1,
-         decode/2]).
+-export([module/1
+         ,decode/2
+         ,encode/2
+        ]).
 
 %%====================================================================
 %% API
@@ -32,6 +34,10 @@ decode(Type, Data) ->
     catch
         _:_ -> Data
     end.
+
+encode(Type, Data) ->
+    Mod = module(Type),
+    Mod:encode(Data).
 
 %%====================================================================
 %% Internal functions
