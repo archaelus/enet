@@ -1,5 +1,5 @@
 *~
-priv/bin/mactap
+priv/bin/*
 *.beam
 .gitignore
 ebin/*.app
