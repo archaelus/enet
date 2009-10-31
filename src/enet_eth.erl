@@ -39,18 +39,20 @@ decode(<<Dest:6/binary,
 decode(_Frame, _) ->
     {error, bad_packet}.
 
-encode(P = #eth{src=Src}) when is_list(Src) ->
+encode(P = #eth{src=Src}) when not is_binary(Src) ->
     encode(P#eth{src=encode_addr(Src)});
-encode(P = #eth{dst=Dest}) when is_list(Dest) ->
+encode(P = #eth{dst=Dest}) when not is_binary(Dest) ->
     encode(P#eth{dst=encode_addr(Dest)});
 encode(P = #eth{type=Type, data=Data}) when is_atom(Type), is_tuple(Data) ->
-    encode(P#eth{data=(codec:module(enet_Type)):encode(Data)});
+    encode(P#eth{type=encode_type(Type), data=enet_codec:encode(Type,Data)});
+encode(P = #eth{type=Type}) when is_atom(Type) ->
+    encode(P#eth{type=encode_type(Type)});
 
 encode(#eth{src=Src,dst=Dest,type=Type,data=Data})
-  when is_binary(Src), is_binary(Dest), is_atom(Type), is_binary(Data) ->
-    <<Src:6/binary,
-     Dest:6/binary,
-     (encode_type(Type)):16/big,
+  when is_binary(Src), is_binary(Dest), is_integer(Type), is_binary(Data) ->
+    <<Dest:6/binary,
+     Src:6/binary,
+     Type:16/big,
      Data/binary>>.
 % IOList form.
 %    [ Src, Dest, << encode_type(Type):16/big>>, Data ].
