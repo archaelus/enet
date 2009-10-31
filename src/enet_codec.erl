@@ -22,7 +22,8 @@ module(ethernet) -> enet_eth;
 module(arp) -> enet_arp;
 module(ipv4) -> enet_ipv4;
 module(udp) -> enet_udp;
-module(dns) -> enet_dns.
+module(dns) -> enet_dns;
+module(icmp) -> enet_icmp.
 
 decode(Type, Data) ->
     try

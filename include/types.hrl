@@ -23,3 +23,5 @@
 -record(ipv4_opt, {type, copy, data}).
 
 -record(udp, {src_port, dst_port, length, csum, data}).
+
+-record(icmp, {type, csum, id, seq, data}).
