@@ -11,8 +11,8 @@ receive ethernet frames via the /dev/tap0 device.
 Drivers
 =======
 
-mactap
-  The ``mactap`` port program requires libevent, Mac OS X (tested
+``enet_tap``
+  The ``enet_tap`` port program requires libevent, Mac OS X (tested
   on OS X 10.6.1) and the tuntaposx driver
   (http://tuntaposx.sourceforge.net). All options are currently hard
   coded.
@@ -21,16 +21,16 @@ mactap
 Use
 ===
 
-(Ensure your user can sudo and you have run a sudo command recently so
-you won't be prompted for a password)
+For ease of use, you should probably change the ownership of /dev/tapN
+to yourself, and allow passwordless sudo to the command
+"/sbin/ifconfig tap0 *". You can do this in /etc/sudoers by::
+    
+    Cmnd_Alias	ENET = /sbin/ifconfig tap0 *
+    yourusername ALL=(ALL) NOPASSWD: ENET
 
+From an erlang shell (with -boot start_sasl)::
 
-    (in an erlang shell:)
-    1> {ok, Pid, Port} = enet_tap:spawn_listen().
-    {ok,<0.33.0>,#Port<0.581>}
+    1> {ok, If} = enet_iface:start("tap0", "192.168.2.1/24 up"),
+       enet_if_dump:attach(If).
 
-(Now configure the interface as root in another shell:
-# ifconfig tap0 192.168.2.1 netmask 255.255.255.0 broadcast 192.168.2.255 up
-)
-
-(You should now see decoded traffic in the erlang shell.)
+You should now see decoded traffic in the erlang shell.
