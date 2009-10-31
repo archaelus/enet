@@ -39,17 +39,17 @@ encode(P = #arp{htype=ethernet,
                 sender={SndrHAddr, SndrPAddr},
                 target={TargHAddr, TargPAddr}}) ->
     encode(P#arp{htype=ethernet,
-                 haddrlen=(enet_codec:module(enet_ethernet)):addr_len(),
-                 sender={(enet_codec:module(enet_ethernet)):encode_addr(SndrHAddr), SndrPAddr},
-                 target={(enet_codec:module(enet_ethernet)):encode_addr(TargHAddr), TargPAddr}});
+                 haddrlen=(enet_codec:module(ethernet)):addr_len(),
+                 sender={(enet_codec:module(ethernet)):encode_addr(SndrHAddr), SndrPAddr},
+                 target={(enet_codec:module(ethernet)):encode_addr(TargHAddr), TargPAddr}});
 encode(P = #arp{ptype=ipv4,
                 paddrlen=undefined,
                 sender={SndrHAddr, SndrPAddr},
                 target={TargHAddr, TargPAddr}}) ->
     encode(P#arp{ptype=ipv4,
-                 paddrlen=(enet_codec:module(enet_ipv4)):addr_len(),
-                 sender={SndrHAddr, (enet_codec:module(enet_ipv4)):encode_addr(SndrPAddr)},
-                 target={TargHAddr, (enet_codec:module(enet_ipv4)):encode_addr(TargPAddr)}});
+                 paddrlen=(enet_codec:module(ipv4)):addr_len(),
+                 sender={SndrHAddr, (enet_codec:module(ipv4)):encode_addr(SndrPAddr)},
+                 target={TargHAddr, (enet_codec:module(ipv4)):encode_addr(TargPAddr)}});
 
 encode(#arp{htype=HType, ptype=PType,
             haddrlen=HAddrLen, paddrlen=PAddrLen,
