@@ -2,13 +2,15 @@
 %% @copyright Geoff Cant
 %% @author Geoff Cant <nem@erlang.geek.nz>
 %% @version {@vsn}, {@date} {@time}
-%% @doc 
+%% @doc Tap port program interface
 %% @end
 %%%-------------------------------------------------------------------
 -module(enet_tap).
 
 %% API
--export([open/0, test/0, listen/0,
+-export([open/0, open/1,
+         if_config/2,
+         test/0, listen/0,
          spawn_listen/0, listen_init/0]).
 
 -compile(export_all).
@@ -19,8 +21,10 @@
 %% API
 %%====================================================================
 
-open() ->
-    P = open_port({spawn, driver()},
+open() -> open("tap0").
+
+open(Device) when is_list(Device) ->
+    P = open_port({spawn, driver() ++ " -f /dev/" ++ Device},
                   [{packet, 2},binary,exit_status,
                    {env, env()}]),
     P.
@@ -28,7 +32,7 @@ open() ->
 driver() ->
     case os:type() of
         {unix, darwin} ->
-            "sudo -E ./priv/bin/mactap"
+            filename:join([priv_dir(), "bin", "enet_tap"])
     end.
 
 env() ->
@@ -38,8 +42,24 @@ env() ->
              {"EVENT_NOPOLL", "1"}]
     end.
 
+priv_dir() ->
+    {file, File} = code:is_loaded(?MODULE),
+    LibDir = filename:dirname(filename:dirname(File)),
+    filename:join([LibDir, "priv"]).
+
 close(P) ->
     port_close(P).
+
+if_config(Device, Options) when is_list(Device), is_list(Options) ->
+    case os:type() of
+        {unix, darwin} ->
+            Cmd = io_lib:format("sudo /sbin/ifconfig ~s ~s", [Device, Options]),
+            case os:cmd(lists:flatten(Cmd)) of
+                "" -> ok;
+                String ->
+                    {error, String}
+            end
+    end.
 
 test() ->
     P = open(),
@@ -99,17 +119,21 @@ listen_init() ->
     proc_lib:init_ack({ok, self(), P}),
     listen(P).
 
+decode(<<0>>) ->
+    running;
+decode(<<1, Data/binary>>) ->
+    {frame, Data}.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-send_arp(P) ->
-    send_arp(P, "8a:7e:6f:94:5d:e9", "192.168.2.2", "192.168.2.1").
+arp() ->
+    arp("8A:7E:6F:94:5D:E9", "192.168.2.2", "192.168.2.1").
 
-send_arp(P, ESrc, SenderIP, TargetIP) ->
-    Pkt = eth:encode(#eth{src=ESrc, dst="ff:ff:ff:ff:ff:ff", type=arp,
-                    data=#arp{htype=ethernet, ptype=ipv4,
-                              sender={ESrc, SenderIP},
-                              target={"0:0:0:0:0:0", TargetIP},
-                              op=request } }),
-    port_command(P, Pkt).
+arp(ESrc, SenderIP, TargetIP) ->
+    #eth{src=ESrc, dst=broadcast, type=arp,
+         data=#arp{htype=ethernet, ptype=ipv4,
+                   sender={ESrc, SenderIP},
+                   target={"00:00:00:00:00:00", TargetIP},
+                   op=request } }.
