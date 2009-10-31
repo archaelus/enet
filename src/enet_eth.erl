@@ -71,6 +71,7 @@ encode_type(arp) -> 16#0806;
 encode_type(rarp) -> 16#0835;
 encode_type(ipv6) -> 16#86DD.
 
+decode_addr(<<16#FF, 16#FF, 16#FF, 16#FF, 16#FF, 16#FF>>) -> broadcast;
 decode_addr(B) when is_binary(B) ->
     string:join([ case erlang:integer_to_list(N, 16) of
                       [C] -> [$0, C];
@@ -78,6 +79,7 @@ decode_addr(B) when is_binary(B) ->
                   end
                   || <<N:8>> <= B], ":").
 
+encode_addr(broadcast) -> <<16#FF, 16#FF, 16#FF, 16#FF, 16#FF, 16#FF>>;
 encode_addr(A) when is_binary(A), byte_size(A) =:= 6 -> A;
 encode_addr(L) when is_list(L) ->
     << << (erlang:list_to_integer(Oct, 16)):8 >>
