@@ -30,7 +30,13 @@ to yourself, and allow passwordless sudo to the command
 
 From an erlang shell (with -boot start_sasl)::
 
-    1> {ok, If} = enet_iface:start("tap0", "192.168.2.1/24 up"),
-       enet_if_dump:attach(If).
+    1> {ok, Pid} = enet_iface:start("tap0", "192.168.2.1/24 up"),
+       enet_if_dump:attach(Pid),
+       enet_if_arp:attach(Pid),
+       enet_if_arp:add_entry(Pid, "4A:6E:01:1B:19:8F", "192.168.2.2").
 
-You should now see decoded traffic in the erlang shell.
+You should now see decoded traffic in the erlang shell. If you ping
+the IP address of the erlang interface ``192.168.2.2`` in the example,
+you should see an arp entry (``arp -na``)::
+
+    ? (192.168.2.2) at 4a:6e:1:1b:19:8f on tap0 ifscope [ethernet]
