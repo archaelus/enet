@@ -9,7 +9,9 @@
 
 -behaviour(gen_event).
 %% API
--export([attach/1]).
+-export([attach/1
+         ,change_format/2
+        ]).
 
 %% gen_event callbacks
 -export([init/1, handle_event/2, handle_call/2, 
@@ -17,7 +19,7 @@
 
 -include("types.hrl").
 
--record(state, {print=true}).
+-record(state, {print=[time, space, direction, space, packet, nl, frame]}).
 
 %%%===================================================================
 %%% gen_event callbacks
@@ -33,6 +35,10 @@
 attach(Interface) ->
     gen_event:add_handler(enet_iface:event_manager(Interface),
                           ?MODULE, []).
+
+change_format(Interface, Format) ->
+    gen_event:call(enet_iface:event_manager(Interface),
+                   ?MODULE, {change_format, Format}).
 
 %%%===================================================================
 %%% gen_event callbacks
@@ -64,25 +70,42 @@ init([]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_event({out, Frame, P = #eth{}}, State) ->
-    print("~s send ~p~nFrame ~p~n", [print_time(), P, Frame], State),
+    print([{dir, send}, {raw, Frame}, {packet, P}], State),
     {ok, State};
 handle_event({in, Frame, P = #eth{}}, State) ->
-    print("~s recv ~p~nFrame ~p~n", [print_time(), P, Frame], State),
+    print([{dir, recv}, {raw, Frame}, {packet, P}], State),
     {ok, State};
 handle_event(Event, State) ->
-    print("~s ~p~n", [print_time(), Event], State),
+    print([time, space, {fmt, "event: ~p", Event}], State),
     {ok, State}.
 
-print(Fmt, Args, #state{print=true}) ->
-    error_logger:info_msg(Fmt, Args);
-print(_, _, _) -> ok.
+print(Info, #state{print=Format}) ->
+    {Fmt, Args} = lists:foldl(fun (FmtArg, Acc) -> format(FmtArg, Info, Acc) end,
+                              {"", []},
+                              Format),
+    error_logger:info_msg(Fmt, Args).
 
-print_time() ->
+format(time, _Info, {Fmt, Args}) ->
     {_,_,Mics} = erlang:now(),
     {_,{H, M, Secs}} = calendar:local_time(),
     Micros = Mics div 1000,
     Seconds = Secs rem 60 + (Micros / 1000),
-    io_lib:format("~p:~p:~p", [H, M, Seconds]).
+    {Fmt ++ "~p:~p:~p", Args ++ [H, M, Seconds]};
+format(space, _Info, {Fmt, Args}) ->
+    {Fmt ++ " ", Args};
+format(nl, _Info, {Fmt, Args}) ->
+    {Fmt ++ "~n", Args};
+format({fmt, F, A}, _Info, {Fmt, Args}) ->
+    {Fmt ++ F, Args ++ A};
+format(direction, Info, {Fmt, Args}) ->
+    Dir = proplists:get_value(dir, Info),
+    {Fmt ++ "~p", Args ++ [Dir]};
+format(packet, Info, {Fmt, Args}) ->
+    P = proplists:get_value(packet, Info),
+    {Fmt ++ "~p", Args ++ [P]};
+format(frame, Info, {Fmt, Args}) ->
+    F = proplists:get_value(raw, Info),
+    {Fmt ++ "frame ~p", Args ++ [F]}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -97,9 +120,8 @@ print_time() ->
 %%                   {remove_handler, Reply}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(_Request, State) ->
-    Reply = ok,
-    {ok, Reply, State}.
+handle_call({change_format, Format}, State) ->
+    {ok, ok, State#state{print=Format}}.
 
 %%--------------------------------------------------------------------
 %% @private
