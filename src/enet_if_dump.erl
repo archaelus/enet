@@ -11,6 +11,7 @@
 %% API
 -export([attach/1
          ,change_format/2
+         ,hexblock/1
         ]).
 
 %% gen_event callbacks
@@ -19,7 +20,7 @@
 
 -include("types.hrl").
 
--record(state, {print=[time, space, direction, space, packet, nl, frame]}).
+-record(state, {print=[time, space, direction, space, packet, nl, {hexblock, frame}]}).
 
 %%%===================================================================
 %%% gen_event callbacks
@@ -105,7 +106,10 @@ format(packet, Info, {Fmt, Args}) ->
     {Fmt ++ "~p", Args ++ [P]};
 format(frame, Info, {Fmt, Args}) ->
     F = proplists:get_value(raw, Info),
-    {Fmt ++ "frame ~p", Args ++ [F]}.
+    {Fmt ++ "frame ~p", Args ++ [F]};
+format({hexblock, frame}, Info, {Fmt, Args}) ->
+    F = proplists:get_value(raw, Info),
+    {Fmt ++ "Frame:~n~s", Args ++ [hexblock(F)]}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -166,3 +170,33 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+hexblock(Bin) ->
+    FullLineBytes = (byte_size(Bin) div 16) * 16,
+    <<FullLines:FullLineBytes/binary, LastLine/binary>> = Bin,
+    Lines = [Line || <<Line:16/binary>> <= Bin ],
+    NumberedLines = lists:zip(lists:seq(0, FullLineBytes-1, 16), Lines),
+    [ [hexblock_line(Offset, Line) || {Offset, Line} <- NumberedLines],
+     hexblock_lastline(FullLineBytes, LastLine)].
+
+hexblock_line(Offset, Line) ->
+    %"0x0000:  4500 0045 0000 0000 4001 f564 c0a8 0202  E..E....@..d...."
+    Groups = [ io_lib:format("~4.16.0b", [Group]) || << Group:16 >> <= Line ],
+    JGroups = string:join(Groups, " "),
+    io_lib:format("0x~4.16.0b:  ~s~n", [Offset, JGroups]).
+
+hexblock_lastline(Offset, Line) ->
+    Size = byte_size(Line),
+    FullGroupSize = (Size div 2) * 2,
+    LastGroupSize = (Size - FullGroupSize) * 8,
+    <<FullGroup:FullGroupSize/binary, LastGroup:LastGroupSize>> = Line,
+    Groups = [ io_lib:format("~4.16.0b", [Group]) || << Group:16 >> <= FullGroup ],
+    JGroups = string:join(Groups, " "),
+    case LastGroupSize of
+        0 ->
+            io_lib:format("0x~4.16.0b:  ~s~n", [Offset, JGroups]);
+        _ ->
+            io_lib:format("0x~4.16.0b:  ~s~n",
+                          [Offset, [JGroups, " ",
+                                    erlang:integer_to_list(LastGroup, 16)]])
+    end.
