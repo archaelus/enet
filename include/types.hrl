@@ -1,6 +1,6 @@
 
 -type ethernet_address() :: list() | << _:48 >>.
--type ethertype() :: atom() | non_neg_integer().
+-type ethertype() :: atom() | 0..65535.
 
 -record(eth, {src :: ethernet_address()
               ,dst :: ethernet_address()
@@ -8,10 +8,10 @@
               ,data :: term()
              }).
 
--type ipv4_proto() :: atom() | non_neg_integer().
+-type ipv4_proto() :: atom() | 0..65535.
 -type ipv4_address() :: list() | << _:32 >>.
--type arp_op() :: 'request' | 'reply' | non_neg_integer().
--type l3_proto() :: atom() | non_neg_integer().
+-type arp_op() :: 'request' | 'reply' | 0..65535.
+-type l3_proto() :: atom() | 0..65535.
 
 -record(arp, {htype :: ethertype()
               ,ptype :: l3_proto()
@@ -37,18 +37,22 @@
                ,hlen :: non_neg_integer()
                ,diffserv = 0 :: integer()
                ,totlen :: non_neg_integer()
-               ,id :: integer()
-               ,flags :: ipv4_flags()
+               ,id = 0 :: integer()
+               ,flags = <<0:3>> :: ipv4_flags()
                ,frag_offset = 0 :: non_neg_integer()
                ,ttl = 64 :: non_neg_integer()
                ,proto :: ipv4_proto()
                ,hdr_csum :: checksum()
                ,src :: ipv4_address()
                ,dst :: ipv4_address()
-               ,options :: list(ipv4_option()) | binary()
+               ,options = [] :: list(ipv4_option()) | binary()
                ,data :: term()
               }).
 
+-record(ipv4_psudo_hdr, {src :: << _:32 >>
+                         ,dst :: << _:32 >>
+                         ,proto :: 0..65535
+                        }).
 
 -record(udp, {src_port :: 0..65535
               ,dst_port :: 0..65535
