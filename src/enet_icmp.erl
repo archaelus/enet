@@ -11,6 +11,8 @@
 -export([decode/1
          ,decode/2
          ,encode/1
+         ,encode/2
+         ,expand/1
         ]).
 
 -include("types.hrl").
@@ -33,15 +35,56 @@ decode(Data) -> decode(Data, []).
 %%   39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,
 %%   54,55>> -- ICMP data.
 
-decode(<<Type, Code, Checksum:16/big,
-        ID:16/big, Sequence:16/big,
-        Data/binary>>, _DecodeOpts) ->
+decode(Pkt = <<Type, Code, Checksum:16/big,
+              ID:16/big, Sequence:16/big,
+              Data/binary>>, _DecodeOpts) ->
     IcmpType = decode_type({Type, Code}),
-    #icmp{type=IcmpType,csum=Checksum,id=ID,seq=Sequence,
+    #icmp{type=IcmpType,
+          csum=enet_checksum:oc16_check(Pkt, Checksum),
+          id=ID,seq=Sequence,
           data=Data}.
 
-encode(foo) ->
-    ok.
+expand(Pkt = #icmp{type=Type}) when is_atom(Type) ->
+    expand(Pkt#icmp{type=encode_type(Type)});
+expand(Pkt = #icmp{type={Type, Code}
+                   ,csum=Checksum
+                   ,id=ID
+                   ,seq=Sequence
+                   ,data=Data})
+  when not is_integer(Checksum),
+       is_integer(Type), is_integer(Code),
+       is_integer(ID), is_integer(Sequence),
+       is_binary(Data) ->
+    CSumPkt = <<Type, Code, 0:16/big,
+               ID:16/big, Sequence:16/big,
+               Data/binary>>,
+    expand(Pkt#icmp{csum=enet_checksum:oc16_sum(CSumPkt)});
+expand(Pkt = #icmp{type={Type, Code}
+                   ,csum=Checksum
+                   ,id=ID
+                   ,seq=Sequence
+                   ,data=Data})
+  when is_integer(Type), is_integer(Code),
+       is_integer(Checksum),
+       is_integer(ID), is_integer(Sequence),
+       is_binary(Data) ->
+    Pkt.
+
+encode(Pkt, _PsuedoHdr) ->
+    encode(expand(Pkt)).
+
+encode(#icmp{type={Type, Code}
+             ,csum=Checksum
+             ,id=ID
+             ,seq=Sequence
+             ,data=Data}) when is_integer(Type), is_integer(Code),
+                               is_integer(ID), is_integer(Sequence),
+                               is_binary(Data) ->
+    <<Type, Code, Checksum:16/big,
+     ID:16/big, Sequence:16/big,
+     Data/binary>>;
+encode(Pkt) ->
+    encode(expand(Pkt)).
 
 %%====================================================================
 %% Internal functions
