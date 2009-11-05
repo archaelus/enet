@@ -132,7 +132,7 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 handle_frame(Frame, S = #state{}) ->
-    try enet_codec:decode(ethernet, Frame) of
+    try enet_codec:decode(ethernet, Frame, [all]) of
         {error, Reason} ->
             ?WARN("Couldn't decode ethernet frame: ~p~nFrame: ~p",
                   [Reason, Frame]);
