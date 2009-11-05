@@ -8,7 +8,7 @@
 -module(enet_udp).
 
 %% API
--export([decode/1, encode/1,
+-export([decode/1, decode/2, encode/1,
          decode_port/1, encode_port/1]).
 
 -include("types.hrl").
@@ -17,9 +17,11 @@
 %% API
 %%====================================================================
 
+decode(Data) -> decode(Data, []).
+
 decode(<<Src:16/big, Dst:16/big,
         Length:16/big, Csum:16/big,
-        Data/binary>>) when byte_size(Data) =:= Length - 8 ->
+        Data/binary>>, _DecodeOpts) when byte_size(Data) =:= Length - 8 ->
     case decode_port(Dst) of
         Dns when Dns =:= <<"dns">>; Dns =:= <<"mdns">> ->
             #udp{src_port=decode_port(Src), dst_port=decode_port(Dst),
@@ -30,7 +32,7 @@ decode(<<Src:16/big, Dst:16/big,
                  length=Length, csum=Csum,
                  data=Data}
     end;
-decode(_Packet) ->
+decode(_Packet, _DecodeOpts) ->
     {error, bad_packet}.
 
 encode(Pkt = #udp{src_port=Src}) when is_binary(Src) ->

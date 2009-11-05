@@ -8,7 +8,7 @@
 -module(enet_arp).
 
 %% API
--export([decode/1,encode/1]).
+-export([decode/1, decode/2, encode/1]).
 
 -include("types.hrl").
 
@@ -16,13 +16,15 @@
 %% API
 %%====================================================================
 
+decode(Data) -> decode(Data, []).
+
 decode(<<HType:16/big, PType:16/big,
         HAddrLen/big, PAddrLen/big,
         Oper:16/big,
         SndrHAddr:HAddrLen/binary,
         SndrPAddr:PAddrLen/binary,
         TargHAddr:HAddrLen/binary,
-        TargPAddr:PAddrLen/binary>>) ->
+        TargPAddr:PAddrLen/binary>>, _DecodeOpts) ->
     H = decode_htype(HType), P = decode_ptype(PType),
     #arp{htype=H, ptype=P,
          haddrlen=HAddrLen, paddrlen=PAddrLen,
@@ -31,7 +33,7 @@ decode(<<HType:16/big, PType:16/big,
                  (enet_codec:module(P)):decode_addr(SndrPAddr)},
          target={(enet_codec:module(H)):decode_addr(TargHAddr),
                  (enet_codec:module(P)):decode_addr(TargPAddr)}};
-decode(_Packet) ->
+decode(_Packet, _DecodeOpts) ->
     {error, bad_packet}.
 
 encode(P = #arp{htype=ethernet,

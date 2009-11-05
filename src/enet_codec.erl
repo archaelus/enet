@@ -10,6 +10,7 @@
 %% API
 -export([module/1
          ,decode/2
+         ,decode/3
          ,encode/2
         ]).
 
@@ -34,6 +35,27 @@ decode(Type, Data) ->
         end
     catch
         _:_ -> Data
+    end.
+
+decode(Type, Data, [all]) ->
+    decode(Type, Data, [eth, ethernet, arp, ipv4, udp, dns, icmp]);
+decode(Type, Data, Options) ->
+    case lists:member(Type, Options) of
+        true ->
+            try
+                Mod = module(Type),
+                case Mod:decode(Data, Options) of
+                    {error, _} -> Data;
+                    Decoded -> Decoded
+                end
+            catch
+                C:E ->
+                    error_logger:error_msg("~p ~p:~p ~p",
+                                           [self(), C, E,
+                                            erlang:get_stacktrace()]),
+                    Data
+            end;
+        false -> Data
     end.
 
 encode(Type, Data) ->

@@ -19,23 +19,15 @@
 %% API
 %%====================================================================
 
-decode(Packet) ->
-    decode(Packet, decode_data).
+decode(Data) -> decode(Data, []).
 
 decode(<<Dest:6/binary,
         Src:6/binary,
         Type:16/big,
-        Data/binary>>, decode_data) ->
+        Data/binary>>, Options) ->
     PType = decode_type(Type),
     #eth{src=decode_addr(Src),dst=decode_addr(Dest),
-         type=PType,data=enet_codec:decode(PType,Data)};
-decode(<<Dest:6/binary,
-        Src:6/binary,
-        Type:16/big,
-        Data/binary>>, _) ->
-    PType = decode_type(Type),
-    #eth{src=decode_addr(Src),dst=decode_addr(Dest),
-         type=PType,data=Data};
+         type=PType,data=enet_codec:decode(PType,Data,Options)};
 decode(_Frame, _) ->
     {error, bad_packet}.
 

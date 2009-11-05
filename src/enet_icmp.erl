@@ -9,6 +9,7 @@
 
 %% API
 -export([decode/1
+         ,decode/2
          ,encode/1
         ]).
 
@@ -23,6 +24,9 @@
 %% @doc 
 %% @end 
 
+
+decode(Data) -> decode(Data, []).
+
 %% <<8,0,119,214,168,9,0,0,74,236,139,70,0,0,22,234,
 %%   8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,
 %%   24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,
@@ -31,7 +35,7 @@
 
 decode(<<Type, Code, Checksum:16/big,
         ID:16/big, Sequence:16/big,
-        Data/binary>>) ->
+        Data/binary>>, _DecodeOpts) ->
     IcmpType = decode_type({Type, Code}),
     #icmp{type=IcmpType,csum=Checksum,id=ID,seq=Sequence,
           data=Data}.
