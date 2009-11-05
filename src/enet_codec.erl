@@ -12,6 +12,7 @@
          ,decode/2
          ,decode/3
          ,encode/2
+         ,encode/3
         ]).
 
 %%====================================================================
@@ -61,6 +62,10 @@ decode(Type, Data, Options) ->
 encode(Type, Data) ->
     Mod = module(Type),
     Mod:encode(Data).
+
+encode(Type, Data, OuterPacket) ->
+    Mod = module(Type),
+    Mod:encode(Data, OuterPacket).
 
 %%====================================================================
 %% Internal functions
