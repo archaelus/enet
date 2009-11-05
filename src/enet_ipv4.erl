@@ -9,8 +9,9 @@
 
 %% API
 -export([decode_addr/1, encode_addr/1,
-         decode/1, encode/1,
+         decode/1, decode/2, encode/1,
          decode_protocol/1, encode_protocol/1,
+         header_checksum/1,
          addr_len/0]).
 
 -include("types.hrl").
@@ -21,11 +22,14 @@
 %% API
 %%====================================================================
 
+decode(Data) -> decode(Data, []).
+
 decode(Dgram = <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
                 ID:16, Flgs:3/bits, FragOff:13, TTL:8, Proto:8, HdrChkSum:16,
-                SrcIP:4/binary, DestIP:4/binary, RestDgram/binary>>)
+                SrcIP:4/binary, DestIP:4/binary, RestDgram/binary>>,
+      DecodeOptions)
   when HLen >= 5, 4*HLen =< byte_size(Dgram) ->
-    OptsLen = 4*(HLen - ?IP_MIN_HDR_LEN),
+    OptsLen = 4 * (HLen - ?IP_MIN_HDR_LEN),
     <<Opts:OptsLen/binary, Data/binary>> = RestDgram,
     Protocol = decode_protocol(Proto),
     #ipv4{vsn=?IP_VERSION,
@@ -37,13 +41,33 @@ decode(Dgram = <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
           frag_offset=FragOff,
           ttl=TTL,
           proto=Protocol,
-          hdr_csum=HdrChkSum,
+          hdr_csum=check_header_checksum(Dgram, HLen, HdrChkSum),
           src=decode_addr(SrcIP),
           dst=decode_addr(DestIP),
           options=decode_options(Opts),
-          data=enet_codec:decode(Protocol, Data)};
-decode(_Dgram) ->
+          data=enet_codec:decode(Protocol, Data, DecodeOptions)};
+decode(_Dgram, _) ->
     {error, bad_packet}.
+
+expand(Pkt = #ipv4{options=Opts}) when is_list(Opts) ->
+    expand(Pkt#ipv4{options=encode_options(Opts)});
+expand(Pkt = #ipv4{hlen=H, options=Opts}) when not is_integer(H), is_binary(Opts) ->
+    expand(Pkt#ipv4{hlen=5 + (byte_size(Opts) div 4)});
+expand(Pkt = #ipv4{totlen=T, hlen=H, data=D})
+  when not is_integer(T), is_integer(H), is_binary(D) ->
+    expand(Pkt#ipv4{totlen=H + byte_size(D)});
+expand(Pkt = #ipv4{flags=Flags}) when is_list(Flags) ->
+    expand(Pkt#ipv4{flags=encode_flags(Flags)});
+expand(Pkt = #ipv4{src=Src}) when not (is_binary(Src) andalso byte_size(Src) =:= 4) ->
+    expand(Pkt#ipv4{src=encode_addr(Src)});
+expand(Pkt = #ipv4{dst=Dst}) when not (is_binary(Dst) andalso byte_size(Dst) =:= 4) ->
+    expand(Pkt#ipv4{dst=encode_addr(Dst)});
+expand(Pkt = #ipv4{proto=P}) when not is_integer(P) ->
+    expand(Pkt#ipv4{proto=encode_protocol(P)});
+expand(Pkt = #ipv4{hdr_csum=S}) when not is_integer(S) ->
+    expand(Pkt#ipv4{hdr_csum=header_checksum(Pkt)});
+expand(Pkt) ->
+    Pkt.
 
 encode(#ipv4{vsn=?IP_VERSION,
              hlen=HLen,
@@ -58,13 +82,19 @@ encode(#ipv4{vsn=?IP_VERSION,
              src=SrcIP,
              dst=DestIP,
              options=Options,
-             data=Data}) ->
-    OptsLen = length(Options),
-    Opts = not_implemented:encode_options(Options),
-    RestDgram = <<Opts:OptsLen/binary, Data/binary>>,
+             data=Data})
+  when is_integer(HLen), is_integer(DiffServ),
+       is_integer(TotLen), is_integer(ID),
+       is_bitstring(Flags), is_integer(FragOff), is_integer(TTL),
+       is_integer(HdrChkSum), is_binary(SrcIP), is_binary(DestIP),
+       is_binary(Data), is_binary(Options) ->
+    OptsLen = byte_size(Options),
+    RestDgram = <<Options:OptsLen/binary, Data/binary>>,
     <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
      ID:16, Flags:3/bits, FragOff:13, TTL:8, Proto:8, HdrChkSum:16,
-     SrcIP:4/binary, DestIP:4/binary, RestDgram/binary>>.
+     SrcIP:4/binary, DestIP:4/binary, RestDgram/binary>>;
+encode(Pkt) ->
+    encode(expand(Pkt)).
 
 addr_len() -> 4.
 
@@ -81,8 +111,14 @@ decode_flags(<<DF:1, MF:1, Evil:1>>) ->
                     (_, Acc) -> Acc
                 end,
                 [],
-                [{dont_fragmet, DF}, {more_fragments, MF},
+                [{dont_fragment, DF}, {more_fragments, MF},
                  {evil, Evil}]).
+
+encode_flags(Flags) ->
+    DF = case lists:member(dont_fragment, Flags) of true -> 1; false -> 0 end,
+    MF = case lists:member(more_fragments, Flags) of true -> 1; false -> 0 end,
+    Evil = case lists:member(evil, Flags) of true -> 1; false -> 0 end,
+    <<DF:1, MF:1, Evil:1>>.
 
 decode_options(Blob) ->
     decode_options(Blob, []).
@@ -99,7 +135,61 @@ decode_option(Copy, {0, 1}, Data, Acc) ->
 decode_option(Copy, {Class, Number}, <<Len:8/big, OptData/binary>>, Acc) ->
     DataLen = Len-2,
     <<Data:DataLen/binary, Rest/binary>> = OptData,
-    decode_options(Rest, [#ipv4_opt{type=decode_option_type(Class, Number), copy=Copy, data=Data} | Acc]).
+    decode_options(Rest, [#ipv4_opt{type=decode_option_type(Class, Number),
+                                    copy=Copy, data=Data} | Acc]).
+
+encode_options([]) ->
+    <<>>.
+
+check_header_checksum(Dgram,HLen,HdrChkSum) when is_binary(Dgram),
+                                                 is_integer(HLen),
+                                                 is_integer(HdrChkSum) ->
+    HeaderLen = 4 * HLen,
+    <<Header:HeaderLen/binary, _/binary>> = Dgram,
+    OurSum = checksum(Header),
+    case OurSum of
+        0 -> correct; %% 0
+        16#FFFF -> correct; %% -0
+        _ -> {incorrect, HdrChkSum}
+    end.
+
+header_checksum(#ipv4{vsn=?IP_VERSION,
+                      hlen=HLen,
+                      diffserv=DiffServ,
+                      totlen=TotLen,
+                      id=ID,
+                      flags=Flags,
+                      frag_offset=FragOff,
+                      ttl=TTL,
+                      proto=Proto,
+                      hdr_csum=_,
+                      src=SrcIP,
+                      dst=DestIP,
+                      options=Options})
+  when is_integer(HLen), is_integer(DiffServ),
+       is_integer(TotLen), is_integer(ID),
+       is_bitstring(Flags), is_integer(FragOff), is_integer(TTL),
+       is_binary(SrcIP), is_binary(DestIP),
+       is_binary(Options) ->
+    RestDgram = Options,
+    Header = <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
+              ID:16, Flags:3/bits, FragOff:13, TTL:8, Proto:8, 0:16,
+              SrcIP:4/binary, DestIP:4/binary, RestDgram/binary>>,
+    checksum(Header).
+
+checksum(Bin) when is_binary(Bin) ->
+    lists:foldl(fun checksum/2,
+                0,
+                [N || <<N:16/big>> <= Bin]).
+
+%% 16 bits Ones complement addition.
+checksum(A, Sum) ->
+    case A + Sum of
+        N when N > 16#FFFF ->
+            N - 16#10000 + 1;
+        N when N =< 16#FFFF ->
+            N
+    end.
 
 decode_option_type(0,  0) -> eool;
 decode_option_type(0,  1) -> nop;
