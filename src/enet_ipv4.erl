@@ -135,7 +135,7 @@ encode_addr(L) when is_list(L) ->
     << << (erlang:list_to_integer(Oct)):8 >>
        || Oct <- string:tokens(L, ".") >>.
 
-decode_flags(<<DF:1, MF:1, Evil:1>>) ->
+decode_flags(<<Evil:1, DF:1, MF:1>>) ->
     lists:foldl(fun ({Flag, 1}, Acc) -> [Flag | Acc];
                     (_, Acc) -> Acc
                 end,
@@ -147,7 +147,7 @@ encode_flags(Flags) ->
     DF = case lists:member(dont_fragment, Flags) of true -> 1; false -> 0 end,
     MF = case lists:member(more_fragments, Flags) of true -> 1; false -> 0 end,
     Evil = case lists:member(evil, Flags) of true -> 1; false -> 0 end,
-    <<DF:1, MF:1, Evil:1>>.
+    <<Evil:1, DF:1, MF:1>>.
 
 decode_options(Blob) ->
     decode_options(Blob, []).
