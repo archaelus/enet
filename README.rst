@@ -21,6 +21,11 @@ Drivers
 Use
 ===
 
+You'll need to edit the ``Makefile`` to set the appropriate ``CFLAGS``
+and ``LDFLAGS`` for your machine and ``erts`` (32 or 64 bit built,
+location of libevent headers and libraries, ...).
+
+
 For ease of use, you should probably change the ownership of ``/dev/tapN``
 to yourself, and allow passwordless sudo to the command
 ``/sbin/ifconfig tapN``. You can do this in /etc/sudoers by::
