@@ -54,8 +54,10 @@
                          ,proto :: 0..65535
                         }).
 
--record(udp, {src_port :: 0..65535
-              ,dst_port :: 0..65535
+-type udp_port() :: 0..65535.
+
+-record(udp, {src_port :: udp_port()
+              ,dst_port :: udp_port()
               ,length :: non_neg_integer()
               ,csum :: checksum()
               ,data :: term()
