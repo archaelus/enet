@@ -49,7 +49,7 @@
                ,data :: term()
               }).
 
--record(ipv4_psudo_hdr, {src :: << _:32 >>
+-record(ipv4_pseudo_hdr, {src :: << _:32 >>
                          ,dst :: << _:32 >>
                          ,proto :: 0..65535
                         }).

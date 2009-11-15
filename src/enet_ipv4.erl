@@ -31,6 +31,7 @@ decode(Dgram = <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
     OptsLen = 4 * (HLen - ?IP_MIN_HDR_LEN),
     <<Opts:OptsLen/binary, Data/binary>> = RestDgram,
     Protocol = decode_protocol(Proto),
+    IPH = #ipv4_pseudo_hdr{src=SrcIP, dst=DestIP, proto=Proto},
     #ipv4{vsn=?IP_VERSION,
           hlen=HLen,
           diffserv=DiffServ,
@@ -44,7 +45,8 @@ decode(Dgram = <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
           src=decode_addr(SrcIP),
           dst=decode_addr(DestIP),
           options=decode_options(Opts),
-          data=enet_codec:decode(Protocol, Data, DecodeOptions)};
+          data=enet_codec:decode(Protocol, Data,
+                                 [ IPH | DecodeOptions ])};
 decode(_Dgram, _) ->
     {error, bad_packet}.
 
@@ -63,7 +65,7 @@ expand(Pkt = #ipv4{proto=P, data=D,
   when not is_binary(D), is_atom(P), is_binary(Src),
        is_binary(Dst) ->
     Proto = encode_protocol(P),
-    PsuedoHdr = #ipv4_psudo_hdr{src=Src,dst=Dst,proto=Proto},
+    PsuedoHdr = #ipv4_pseudo_hdr{src=Src,dst=Dst,proto=Proto},
     expand(Pkt#ipv4{data=enet_codec:encode(P, D, PsuedoHdr)});
 expand(Pkt = #ipv4{proto=P}) when not is_integer(P) ->
     expand(Pkt#ipv4{proto=encode_protocol(P)});
