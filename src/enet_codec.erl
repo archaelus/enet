@@ -31,11 +31,15 @@ decode(Type, Data) ->
     try
         Mod = module(Type),
         case Mod:decode(Data) of
-        {error, _} -> Data;
-        Decoded -> Decoded
+            {error, _} -> Data;
+            Decoded -> Decoded
         end
     catch
-        _:_ -> Data
+        C:E ->
+            error_logger:error_msg("~p ~p:~p ~p",
+                                   [self(), C, E,
+                                    erlang:get_stacktrace()]),
+            Data
     end.
 
 decode(Type, Data, [all]) ->
