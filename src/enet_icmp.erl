@@ -8,8 +8,7 @@
 -module(enet_icmp).
 
 %% API
--export([decode/1
-         ,decode/2
+-export([decode/2
          ,encode/1
          ,encode/2
          ,expand/1
@@ -26,8 +25,6 @@
 %% @doc 
 %% @end 
 
-
-decode(Data) -> decode(Data, []).
 
 %% <<8,0,119,214,168,9,0,0,74,236,139,70,0,0,22,234,
 %%   8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,

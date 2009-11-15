@@ -8,7 +8,7 @@
 -module(enet_eth).
 
 %% API
--export([decode/1, decode/2, encode/1,
+-export([decode/2, encode/1,
          decode_type/1, encode_type/1,
          decode_addr/1, encode_addr/1,
          addr_len/0]).
@@ -18,8 +18,6 @@
 %%====================================================================
 %% API
 %%====================================================================
-
-decode(Data) -> decode(Data, []).
 
 decode(<<Dest:6/binary,
         Src:6/binary,

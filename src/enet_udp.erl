@@ -8,7 +8,7 @@
 -module(enet_udp).
 
 %% API
--export([decode/1, decode/2, encode/1,
+-export([decode/2, encode/1,
          decode_port/1, encode_port/1]).
 
 -include("types.hrl").

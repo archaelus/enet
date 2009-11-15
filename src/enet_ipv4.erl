@@ -9,7 +9,7 @@
 
 %% API
 -export([decode_addr/1, encode_addr/1
-         ,decode/1, decode/2
+         ,decode/2
          ,encode/1, expand/1
          ,decode_protocol/1, encode_protocol/1
          ,header_checksum/1
@@ -23,9 +23,6 @@
 %%====================================================================
 %% API
 %%====================================================================
-
-decode(Data) -> decode(Data, []).
-
 decode(Dgram = <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
                 ID:16, Flgs:3/bits, FragOff:13, TTL:8, Proto:8, HdrChkSum:16,
                 SrcIP:4/binary, DestIP:4/binary, RestDgram/binary>>,

@@ -8,15 +8,13 @@
 -module(enet_arp).
 
 %% API
--export([decode/1, decode/2, encode/1]).
+-export([decode/2, encode/1]).
 
 -include("types.hrl").
 
 %%====================================================================
 %% API
 %%====================================================================
-
-decode(Data) -> decode(Data, []).
 
 decode(<<HType:16/big, PType:16/big,
         HAddrLen/big, PAddrLen/big,

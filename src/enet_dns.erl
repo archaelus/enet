@@ -8,7 +8,7 @@
 -module(enet_dns).
 
 %% API
--export([decode/1]).
+-export([decode/2]).
 
 -include_lib("kernel/src/inet_dns.hrl").
 
@@ -22,7 +22,7 @@ decode(Msg = <<ID:16,
               _Z:3,RCODE:4,
               QDCOUNT:16,ANCOUNT:16,
               NSCOUNT:16,ARCOUNT:16,
-              Rest/binary>>) ->
+              Rest/binary>>, _DecodeOpts) ->
     Header = #dns_header{id=ID,
                 qr=QR,
                 opcode=OPCODE,
