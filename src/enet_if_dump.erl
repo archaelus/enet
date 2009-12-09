@@ -20,7 +20,9 @@
 
 -include("types.hrl").
 
--record(state, {print=[time, space, direction, space, packet, nl, {hexblock, frame}]}).
+-record(state, {print=[time, space, direction, space, packet, nl
+                       ,{hexblock, frame}, nl
+                       ,frame]}).
 
 %%%===================================================================
 %%% gen_event callbacks
