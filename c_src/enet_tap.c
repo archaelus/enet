@@ -136,6 +136,10 @@ void erlang_init() {
 }
 
 void tap_init() {
+    if (tap_fd == STDIN_FILENO || tap_fd == STDOUT_FILENO) {
+        fprintf(stderr, "BUG: tap filedescriptor is stdin/out for some reason.\n");
+        exit(8);
+    }
     event_set(&tap, tap_fd, EV_READ | EV_PERSIST, tap_input, NULL);
     if (event_add(&tap, NULL) != 0) {
         fprintf(stderr, "Couldn't add tap event.\n");
