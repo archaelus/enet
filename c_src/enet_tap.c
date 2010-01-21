@@ -128,8 +128,8 @@ void erl_error(int fd, short event, void *ud) {
 }
 
 void erlang_init() {
-    from_erlang = bufferevent_new(STDIN_FILENO, erl_input, NULL, erl_error, NULL);
-    to_erlang = bufferevent_new(STDOUT_FILENO, NULL, NULL, erl_error, NULL);
+    from_erlang = bufferevent_new(STDIN_FILENO, (evbuffercb)erl_input, NULL, (everrorcb)erl_error, NULL);
+    to_erlang = bufferevent_new(STDOUT_FILENO, NULL, NULL, (everrorcb)erl_error, NULL);
     bufferevent_setwatermark(from_erlang, EV_READ, 2, 65535);
     bufferevent_enable(from_erlang, EV_READ);
     bufferevent_enable(to_erlang, EV_WRITE);
