@@ -79,6 +79,20 @@ void erl_input(int fd, short event, void *ud) {
     free(data_buf);
 }
 
+void send_to_erlang(u_char *buffer, size_t buffer_len) {
+    size_t erl_pkt_len;
+    u_char size_buf[3];
+
+    size_buf[2] = PORT_PROTO_PACKET;
+
+    erl_pkt_len = buffer_len + 1;
+    size_buf[1] = erl_pkt_len;
+    size_buf[0] = erl_pkt_len >> 8;
+    bufferevent_write(to_erlang, size_buf, 3);
+
+    bufferevent_write(to_erlang, buffer, buffer_len);
+}
+
 void tap_input(int fd, short event, void *ud) {
     u_char packet_buf[MAX_PACKET_SIZE];
     size_t packet_len;
@@ -95,20 +109,6 @@ void tap_input(int fd, short event, void *ud) {
     if (packet_len > 0) {
         send_to_erlang(packet_buf, packet_len);
     }
-}
-
-void send_to_erlang(u_char *buffer, size_t buffer_len) {
-    size_t erl_pkt_len;
-    u_char size_buf[3];
-
-    size_buf[2] = PORT_PROTO_PACKET;
-
-    erl_pkt_len = buffer_len + 1;
-    size_buf[1] = erl_pkt_len;
-    size_buf[0] = erl_pkt_len >> 8;
-    bufferevent_write(to_erlang, size_buf, 3);
-
-    bufferevent_write(to_erlang, buffer, buffer_len);
 }
 
 void running() {
