@@ -8,6 +8,13 @@
 #include <fcntl.h>
 #include <getopt.h>
 
+#ifdef __linux__
+#include <net/if.h>
+#include <linux/if_tun.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#endif
+
 #define MAX_PACKET_SIZE 2048
 
 #define PORT_PROTO_RUNNING 0
@@ -148,7 +155,11 @@ void tap_init() {
 }
 
 void usage() {
-    fprintf(stderr, "Usage: mactap -f <device>\n");
+#ifdef __linux__
+    fprintf(stderr, "Usage: enet_tap -i <device>\n");
+#else
+    fprintf(stderr, "Usage: enet_tap -f <device>\n");
+#endif
     exit(1);
 }
 
@@ -157,6 +168,52 @@ int main(int argc, char **argv) {
 
     eb = event_init();
 
+#ifdef __linux__
+    static struct option longopts[] = {
+        { "device", required_argument, NULL, 'i' },
+        { "debug", no_argument, &debug, 'd' },
+        { NULL, 0, NULL, 0 }
+    };
+
+    // Process options
+    while ((ch = getopt_long(argc, argv, "i:", longopts, NULL)) != -1) {
+        switch (ch) {
+        case 'i':
+            {
+                struct ifreq ifr;
+                int fd, err;
+
+                if( (fd = open("/dev/net/tun", O_RDWR)) < 0 ) {
+                    perror("open");
+                    fprintf(stderr, "Couldn't open /dev/net/tun to create device %s.\n", optarg);
+                    exit(10);
+                }
+
+                memset(&ifr, 0, sizeof(ifr));
+
+                /* Flags: IFF_TUN   - TUN device (no Ethernet headers) 
+                 *        IFF_TAP   - TAP device  
+                 *
+                 *        IFF_NO_PI - Do not provide packet information  
+                 */ 
+                ifr.ifr_flags = IFF_TAP | IFF_NO_PI; 
+                strncpy(ifr.ifr_name, optarg, IFNAMSIZ);
+
+                if( (err = ioctl(fd, TUNSETIFF, (void *) &ifr)) < 0 ){
+                    fprintf(stderr, "Couldn't create device %s.\n", optarg);
+                    exit(11);
+                }
+                tap_fd = fd;
+            }
+            break;
+        case '?':
+        default:
+            usage();
+        }
+    }
+    argc -= optind;
+    argv += optind;
+#else
     /* options descriptor */
     static struct option longopts[] = {
         { "file", required_argument, NULL, 'f' },
@@ -183,6 +240,7 @@ int main(int argc, char **argv) {
     }
     argc -= optind;
     argv += optind;
+#endif
 
     erlang_init();
     tap_init();
