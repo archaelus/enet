@@ -6,21 +6,29 @@ ENet is a pure Erlang network stack that can be used to encode and
 decode a variety of common packet formats.
 
 The project includes a port program that can be used to send and
-receive ethernet frames via the /dev/tap0 device.
+receive ethernet frames via the ``/dev/tap0`` device.
+
+Requirements
+============
+
+Mac OS X
+  ``libevent``, OS X 10.6.1 (probably compatible with other versions), the
+  ``tuntaposx`` driver ( http://tuntaposx.sourceforge.net ) loaded, ``sudo``.
+
+Linux
+  libevent, the ``tun`` module loaded, the ``tunctl`` program (usually
+  in the ``uml-utilities`` package``), ``sudo``.
 
 Drivers
 =======
 
 Mac OS X
-  The ``enet_tap`` port program requires libevent, Mac OS X (tested
-  on OS X 10.6.1) and the tuntaposx driver
-  (http://tuntaposx.sourceforge.net). Takes a mandatory option ``-f``
-  to specify which tap device to use. (normally "/dev/tap0")
+  The ``enet_tap`` port program. Takes a mandatory option ``-f`` to
+  specify which tap device to use. (normally "/dev/tap0")
 
 Linux
-  The ``enet_tap`` port program requires libevent and a linux kernel
-  with the 'tun' module loaded. Takes a mandatory ``-i`` argument that
-  specifies which tap device to use. (normally "tap0")
+  The ``enet_tap`` port program. Takes a mandatory ``-i`` argument
+  that specifies which tap device to use. (normally "tap0")
 
 
 Building the Driver
