@@ -2,9 +2,14 @@ VSN          := 0.1
 ERL          ?= erl
 EBIN_DIRS    := $(wildcard lib/*/ebin)
 APP          := enet
-CC           ?= /Developer/usr/llvm-gcc-4.2/bin/llvm-gcc-4.2
-CFLAGS       ?= -march=core2 -mmmx -msse3 -w -pipe -mmacosx-version-min=10.6 -I /Users/nem/usr/include
-LDFLAGS      ?= -L/Users/nem/usr/lib
+OS	     := $(shell uname -s)
+
+ifeq (Darwin, $(OS))
+	CC           ?= /Developer/usr/llvm-gcc-4.2/bin/llvm-gcc-4.2
+	CFLAGS       ?= -march=core2 -mmmx -msse3 -w -pipe -mmacosx-version-min=10.6 -I /Users/nem/usr/include
+	LDFLAGS      ?= -L/Users/nem/usr/lib
+endif
+
 TAP_DRIVER := priv/bin/enet_tap
 
 all: erl ebin/$(APP).app $(TAP_DRIVER)
