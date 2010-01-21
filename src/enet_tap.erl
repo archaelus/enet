@@ -23,23 +23,32 @@
 
 open() -> open("tap0").
 
-open(Device) when is_list(Device) ->
-    P = open_port({spawn, driver() ++ " -f /dev/" ++ Device},
-                  [{packet, 2},binary,exit_status,
-                   {env, env()}]),
-    P.
+open(Device) ->
+    open_port({spawn, driver() ++ args(Device)},
+              [{packet, 2},binary,exit_status,
+               {env, env()}]).
 
 driver() ->
     case os:type() of
-        {unix, darwin} ->
+        {unix, _} ->
             filename:join([priv_dir(), "bin", "enet_tap"])
+    end.
+
+args(Device) when is_list(Device) ->
+    case os:type() of
+        {unix, darwin} ->
+            " -f /dev/" ++ Device;
+        {unix, linux} ->
+            " -i " ++ Device
     end.
 
 env() ->
     case os:type() of
         {unix, darwin} ->
             [{"EVENT_NOKQUEUE", "1"},
-             {"EVENT_NOPOLL", "1"}]
+             {"EVENT_NOPOLL", "1"}];
+        {unix, _} ->
+            []
     end.
 
 priv_dir() ->
@@ -52,7 +61,7 @@ close(P) ->
 
 if_config(Device, Options) when is_list(Device), is_list(Options) ->
     case os:type() of
-        {unix, darwin} ->
+        {unix, _} ->
             Cmd = io_lib:format("sudo /sbin/ifconfig ~s ~s", [Device, Options]),
             case os:cmd(lists:flatten(Cmd)) of
                 "" -> ok;
