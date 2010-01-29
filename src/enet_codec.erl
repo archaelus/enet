@@ -25,7 +25,8 @@ module(arp) -> enet_arp;
 module(ipv4) -> enet_ipv4;
 module(udp) -> enet_udp;
 module(dns) -> enet_dns;
-module(icmp) -> enet_icmp.
+module(icmp) -> enet_icmp;
+module(tcp) -> enet_tcp.
 
 decode(Type, Data) ->
     try
@@ -43,7 +44,7 @@ decode(Type, Data) ->
     end.
 
 decode(Type, Data, [all]) ->
-    decode(Type, Data, [eth, ethernet, arp, ipv4, udp, dns, icmp]);
+    decode(Type, Data, [eth, ethernet, arp, ipv4, udp, dns, icmp, tcp]);
 decode(Type, Data, Options) ->
     case lists:member(Type, Options) of
         true ->

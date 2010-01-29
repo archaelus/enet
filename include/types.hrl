@@ -54,10 +54,10 @@
                          ,proto :: 0..65535
                         }).
 
--type udp_port() :: 0..65535.
+-type port_no() :: 0..65535.
 
--record(udp, {src_port :: udp_port()
-              ,dst_port :: udp_port()
+-record(udp, {src_port :: port_no()
+              ,dst_port :: port_no()
               ,length :: non_neg_integer()
               ,csum :: checksum()
               ,data :: term()
@@ -71,3 +71,26 @@
                ,seq :: non_neg_integer()
                ,data :: binary()
               }).
+
+-type flag_value() :: boolean() | 0..1.
+
+-type tcp_option() :: term().
+
+-record(tcp, {src_port :: port_no()
+              ,dst_port :: port_no()
+              ,seq_no :: non_neg_integer()
+              ,ack_no :: non_neg_integer()
+              ,data_offset :: non_neg_integer()
+              ,reserved :: non_neg_integer()
+              ,urg :: flag_value()
+              ,ack :: flag_value()
+              ,psh :: flag_value()
+              ,rst :: flag_value()
+              ,syn :: flag_value()
+              ,fin :: flag_value()
+              ,window :: 0..65535
+              ,csum :: checksum()
+              ,urg_pointer :: non_neg_integer()
+              ,options :: binary() | [tcp_option()]
+              ,data :: term()
+             }).
