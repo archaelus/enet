@@ -49,8 +49,6 @@ decode(<<Src:16/big, Dst:16/big,
 decode(_Packet, _DecodeOpts) ->
     {error, bad_packet}.
 
-decode_flag(0) -> false;
-decode_flag(1) -> true.
 
 decode_options(Options) -> Options.
 
@@ -64,7 +62,8 @@ encode_port(Port) ->
 %% Internal functions
 %%====================================================================
 
-
+decode_flag(0) -> false;
+decode_flag(1) -> true.
 
 check_sum(16#FFFF, _IPH, _Length, _Data) ->
     no_checksum;
