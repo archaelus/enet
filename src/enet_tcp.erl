@@ -49,9 +49,6 @@ decode(<<Src:16/big, Dst:16/big,
 decode(_Packet, _DecodeOpts) ->
     {error, bad_packet}.
 
-
-decode_options(Options) -> Options.
-
 decode_port(Port) ->
     enet_services:decode_port(tcp, Port).
 
@@ -64,6 +61,38 @@ encode_port(Port) ->
 
 decode_flag(0) -> false;
 decode_flag(1) -> true.
+
+decode_options(Blob) ->
+    decode_options(Blob, []).
+
+decode_options(<<>>, Acc) ->
+    lists:reverse(Acc);
+%% End of Options List (padding?)
+decode_options(<<0, Rest/binary>>, Acc) -> decode_options(Rest, Acc);
+%% Nop
+decode_options(<<1, Rest/binary>>, Acc) -> decode_options(Rest, Acc);
+%% MSS
+decode_options(<<2, 4, MSS:16/big, Rest/binary>>, Acc) ->
+    decode_options(Rest, [{mss, MSS} | Acc]);
+%% Window Size Shift
+decode_options(<<3, 3, Shift, Rest/binary>>, Acc) ->
+    decode_options(Rest, [{window_size_shift, Shift} | Acc]);
+%% SACK Permitted
+decode_options(<<4, 2, Rest/binary>>, Acc) ->
+    decode_options(Rest, [sack_ok | Acc]);
+%% SACK
+decode_options(<<5, Len, Tail/binary>>, Acc) ->
+    SackLen = Len - 2,
+    <<SackData:SackLen/binary, Rest/binary>> = Tail,
+    decode_options(Rest, [{sack, SackData} | Acc]);
+%% Alternate Checksum Request
+decode_options(<<14, 3, Algo, Rest/binary>>, Acc) ->
+    decode_options(Rest, [{alternate_csum_request, Algo} | Acc]);
+%% Alternate Checksum
+decode_options(<<15, Len, Tail/binary>>, Acc) ->
+    CsumLen = Len - 2,
+    <<CsumData:CsumLen/binary, Rest/binary>> = Tail,
+    decode_options(Rest, [{alternate_csum, CsumData} | Acc]).
 
 check_sum(16#FFFF, _IPH, _Length, _Data) ->
     no_checksum;
