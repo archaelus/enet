@@ -41,7 +41,7 @@ decode(<<Src:16/big, Dst:16/big,
                ,urg=decode_flag(Urg), ack=decode_flag(Ack), psh=decode_flag(Psh)
                ,rst=decode_flag(Rst), syn=decode_flag(Syn), fin=decode_flag(Fin)
                ,window=Window
-               ,csum=check_sum(Csum, IPH, Pkt)
+               ,csum=check_sum(Csum, IPH, byte_size(Pkt), Pkt)
                ,urg_pointer=UrgPointer
                ,options=decode_options(Options)
                ,data=TcpData
@@ -64,12 +64,14 @@ encode_port(Port) ->
 %% Internal functions
 %%====================================================================
 
-check_sum(16#FFFF, _IPH, _Data) ->
+
+
+check_sum(16#FFFF, _IPH, _Length, _Data) ->
     no_checksum;
 check_sum(Csum, #ipv4_pseudo_hdr{src=Src, dst=Dst, proto=Proto},
-          Data)
-  when is_integer(Csum), is_binary(Data),
+          Length, Data)
+  when is_integer(Csum), is_binary(Data), is_integer(Length),
        is_binary(Src), is_binary(Dst), is_integer(Proto) ->
     Pkt = <<Src:4/binary, Dst:4/binary, 0:8, Proto:8/big,
-           Data/binary>>,
+           Length:16/big, Data/binary>>,
     enet_checksum:oc16_check(Pkt, Csum).
