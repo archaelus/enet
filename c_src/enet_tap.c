@@ -62,18 +62,18 @@ void erl_input(int fd, short event, void *ud) {
 
     data_buf = malloc(sizeof(u_char) * len);
     if (data_buf == NULL) { 
-        fprintf(stderr, "Couldn't allocate %d bytes for data\n", len);
+        fprintf(stderr, "Couldn't allocate %zu bytes for data\n", len);
         exit (3);
     }
 
     data_read = bufferevent_read(from_erlang, data_buf, len);
     if (data_read != len) {
-        fprintf(stderr, "Wanted to read %d bytes data but got %d instead\n", len, data_read);
+        fprintf(stderr, "Wanted to read %zu bytes data but got %zu instead\n", len, data_read);
         free(data_buf);
         exit(2);
     }
 
-    //fprintf(stderr, "Writing %d bytes from erlang to tap.\n", data_read);
+    //fprintf(stderr, "Writing %zu bytes from erlang to tap.\n", data_read);
     //bufferevent_write(to_erlang, size_buf, 2);
     //bufferevent_write(to_erlang, data_buf, data_read);
     data_written = write(tap_fd, data_buf, data_read);
@@ -81,7 +81,7 @@ void erl_input(int fd, short event, void *ud) {
         perror("write");
     }
     if (data_written != data_read) {
-        fprintf(stderr, "Tried to write %d bytes to the tap, but got %d instead\n", data_read, data_written);
+        fprintf(stderr, "Tried to write %zu bytes to the tap, but got %zu instead\n", data_read, data_written);
     }
     free(data_buf);
 }
