@@ -62,11 +62,12 @@ decode_answers(Msg, Count, Rest, Acc) ->
     {Name, <<Type:16,Class:16,TTL:32,
             RDLen:16,RD:RDLen/binary,
             RRest/binary>>} = decode_name(Msg, Rest),
+    RRType = decode_type(Type),
     R = #dns_rr{domain=Name,
-                type=decode_type(Type),
+                type=RRType,
                 class=decode_class(Class),
                 ttl=TTL,
-                data=RD},
+                data=decode_data(Msg, RRType, RD)},
     decode_answers(Msg, Count-1, RRest, Acc ++ [R]).
 
 %% Authority
@@ -94,6 +95,27 @@ decode_name(Msg, <<1:1,1:1,Ptr:14,Rest/binary>>, Acc) ->
 decode_name(Msg, <<Len:8,Name:Len/binary,Rest/binary>>, Acc) ->
     StrName = binary_to_list(Name),
     decode_name(Msg, Rest, case Acc of [] -> StrName; _ -> [Acc, ".", StrName] end).
+
+%% Data
+
+decode_data(_Msg, ?S_TXT, Bin) ->
+    decode_txt(Bin);
+decode_data(Msg, ?S_PTR, Bin) ->
+    {Name,<<>>} = decode_name(Msg, Bin),
+    Name;
+decode_data(Msg, ?S_SRV, <<Prio:16/big
+                           ,Weight:16/big
+                           ,Port:16/big
+                           ,NameData/binary>>) ->
+    {Name, <<>>} = decode_name(Msg, NameData),
+    {srv, Prio, Weight, Port, Name};
+decode_data(_MSG, _Type, Data) ->
+    Data.
+
+decode_txt(<<Len:8, String:Len/binary, Rest/binary>>) ->
+    [ String | decode_txt(Rest) ];
+decode_txt(<<>>) ->
+    [].
 
 %%
 %% Resource types
