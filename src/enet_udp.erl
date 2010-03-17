@@ -43,23 +43,29 @@ decode(_Packet, _DecodeOpts) ->
 
 expand(Pkt = #udp{length=undefined,
                   data=Data}, O) when is_binary(Data) ->
-    encode(Pkt#udp{length=(byte_size(Data) + ?UDP_HEADER_LEN)}, O);
-expand(Pkt = #udp{src_port=Src}, O) when not is_binary(Src) ->
-    expand(Pkt#udp{src_port=encode_port(Src)}, O);
-expand(Pkt = #udp{dst_port=Dst}, O) when not is_binary(Dst) ->
-    expand(Pkt#udp{dst_port=encode_port(Dst)}, O);
+    expand(Pkt#udp{length=(byte_size(Data) + ?UDP_HEADER_LEN)}, O);
+expand(Pkt = #udp{src_port=Src}, O) when not is_binary(Src);
+                                         is_binary(Src), byte_size(Src) =/= 2 ->
+    Port = encode_port(Src),
+    expand(Pkt#udp{src_port= <<Port:16/big>>}, O);
+expand(Pkt = #udp{dst_port=Dst}, O) when not is_binary(Dst);
+                                         is_binary(Dst), byte_size(Dst) =/= 2 ->
+    Port = encode_port(Dst),
+    expand(Pkt#udp{dst_port= <<Port:16/big>>}, O);
 expand(Pkt = #udp{src_port=Src,
                   dst_port=Dst,
                   length=Length,
-                  csum=undefined,
+                  csum=Csum,
                   data=Data}, O)
   when is_binary(Src), is_binary(Dst),
-       is_integer(Length),
+       is_integer(Length), not is_integer(Csum),
        is_binary(Data) ->
-    PseudoPkt = <<Src:16/big, Dst:16/big,
+    DataLength=Length - ?UDP_HEADER_LEN,
+    PseudoPkt = <<Src:2/binary, Dst:2/binary,
                  Length:16/big, 0:16/big,
-                 Data:Length/binary>>,
-    expand(Pkt#udp{csum=sum(PseudoPkt, Length, O)}, O);
+                 Data:DataLength/binary>>,
+    Sum = sum(PseudoPkt, Length, O),
+    expand(Pkt#udp{csum=Sum}, O);
 expand(Pkt = #udp{src_port=Src,
                   dst_port=Dst,
                   length=Length,
@@ -78,9 +84,10 @@ encode(#udp{src_port=Src,
   when is_binary(Src), is_binary(Dst),
        is_integer(Length), is_integer(Csum),
        is_binary(Data) ->
-    <<Src:16/big, Dst:16/big,
+    DataLength=Length - ?UDP_HEADER_LEN,
+    <<Src:2/binary, Dst:2/binary,
      Length:16/big, Csum:16/big,
-     Data:Length/binary>>;
+     Data:DataLength/binary>>;
 encode(Pkt, O) ->
     encode(expand(Pkt, O), O).
 
