@@ -12,7 +12,7 @@ endif
 
 TAP_DRIVER := priv/bin/enet_tap
 
-all: erl ebin/$(APP).app $(TAP_DRIVER)
+all: erl $(TAP_DRIVER)
 
 erl: ebin lib
 	@$(ERL) -pa $(EBIN_DIRS) -pa ebin -noinput +B \
@@ -23,10 +23,7 @@ docs:
 
 clean: 
 	@echo "removing:"
-	@rm -fv ebin/*.beam ebin/*.app
-
-ebin/$(APP).app: src/$(APP).app
-	@cp -v src/$(APP).app $@
+	@rm -fv ebin/*.beam
 
 ebin:
 	@mkdir ebin
