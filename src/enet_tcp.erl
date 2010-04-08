@@ -85,6 +85,8 @@ decode_options(<<5, Len, Tail/binary>>, Acc) ->
     SackLen = Len - 2,
     <<SackData:SackLen/binary, Rest/binary>> = Tail,
     decode_options(Rest, [{sack, SackData} | Acc]);
+decode_options(<<8, 10, TSVal:32, TSReply:32, Rest/binary>>, Acc) ->
+    decode_options(Rest, [{timestamp, TSVal, TSReply} | Acc]);
 %% Alternate Checksum Request
 decode_options(<<14, 3, Algo, Rest/binary>>, Acc) ->
     decode_options(Rest, [{alternate_csum_request, Algo} | Acc]);
