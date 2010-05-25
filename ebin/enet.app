@@ -12,10 +12,12 @@
               ,enet_eth
               ,enet_icmp
               ,enet_if_arp
+              ,enet_if_crtest
               ,enet_if_dump
               ,enet_if_icmp
               ,enet_iface
               ,enet_ipv4
+              ,enet_pcap
               ,enet_services
               ,enet_srcgen
               ,enet_tap
