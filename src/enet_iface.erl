@@ -93,13 +93,15 @@ handle_call(Call, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({send, Data}, S = #state{port=P}) when is_port(P) ->
     case Data of
-        Packet when is_tuple(Packet) ->
+        Packet = #eth{} ->
             Frame = enet_codec:encode(ethernet, Packet),
             gen_event:notify(S#state.ev_pid, {out, Frame, Packet}),
             port_command(P, Frame);
         Frame when is_binary(Frame) ->
             gen_event:notify(S#state.ev_pid, {out, Frame, raw}),
-            port_command(P, Frame)
+            port_command(P, Frame);
+        BadPacket ->
+            ?WARN("Couldn't send bad packet: ~p", [BadPacket])
     end,
     {noreply, S};
 handle_cast(Msg, State) ->
