@@ -35,18 +35,16 @@ decode(_Packet, _DecodeOpts) ->
     {error, bad_packet}.
 
 encode(P = #arp{htype=ethernet,
-                haddrlen=undefined,
                 sender={SndrHAddr, SndrPAddr},
                 target={TargHAddr, TargPAddr}}) ->
-    encode(P#arp{htype=ethernet,
+    encode(P#arp{htype=encode_htype(ethernet),
                  haddrlen=(enet_codec:module(ethernet)):addr_len(),
                  sender={(enet_codec:module(ethernet)):encode_addr(SndrHAddr), SndrPAddr},
                  target={(enet_codec:module(ethernet)):encode_addr(TargHAddr), TargPAddr}});
 encode(P = #arp{ptype=ipv4,
-                paddrlen=undefined,
                 sender={SndrHAddr, SndrPAddr},
                 target={TargHAddr, TargPAddr}}) ->
-    encode(P#arp{ptype=ipv4,
+    encode(P#arp{ptype=encode_ptype(ipv4),
                  paddrlen=(enet_codec:module(ipv4)):addr_len(),
                  sender={SndrHAddr, (enet_codec:module(ipv4)):encode_addr(SndrPAddr)},
                  target={TargHAddr, (enet_codec:module(ipv4)):encode_addr(TargPAddr)}});
@@ -56,18 +54,19 @@ encode(#arp{htype=HType, ptype=PType,
             op=Oper,
             sender={SndrHAddr, SndrPAddr},
             target={TargHAddr, TargPAddr}})
-  when byte_size(SndrHAddr) =:= byte_size(TargHAddr),
+  when is_integer(HType), is_integer(PType),
+       byte_size(SndrHAddr) =:= byte_size(TargHAddr),
        byte_size(SndrHAddr) =:= HAddrLen,
        byte_size(SndrPAddr) =:= byte_size(TargPAddr),
        byte_size(SndrPAddr) =:= PAddrLen ->
-    <<(encode_htype(HType)):16/big,
-     (encode_ptype(PType)):16/big,
-     HAddrLen/big, PAddrLen/big,
-     (encode_op(Oper)):16/big,
-     SndrHAddr:HAddrLen/binary,
-     SndrPAddr:PAddrLen/binary,
-     TargHAddr:HAddrLen/binary,
-     TargPAddr:PAddrLen/binary>>.
+    <<HType:16/big,
+      PType:16/big,
+      HAddrLen/big, PAddrLen/big,
+      (encode_op(Oper)):16/big,
+      SndrHAddr:HAddrLen/binary,
+      SndrPAddr:PAddrLen/binary,
+      TargHAddr:HAddrLen/binary,
+      TargPAddr:PAddrLen/binary>>.
 
 %%====================================================================
 %% Internal functions
