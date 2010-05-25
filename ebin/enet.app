@@ -15,6 +15,8 @@
               ,enet_if_crtest
               ,enet_if_dump
               ,enet_if_icmp
+              ,enet_if_udp
+              ,enet_if_tcp
               ,enet_iface
               ,enet_ipv4
               ,enet_pcap
