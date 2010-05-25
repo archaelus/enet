@@ -94,7 +94,9 @@ decode_options(<<14, 3, Algo, Rest/binary>>, Acc) ->
 decode_options(<<15, Len, Tail/binary>>, Acc) ->
     CsumLen = Len - 2,
     <<CsumData:CsumLen/binary, Rest/binary>> = Tail,
-    decode_options(Rest, [{alternate_csum, CsumData} | Acc]).
+    decode_options(Rest, [{alternate_csum, CsumData} | Acc]);
+decode_options(<<OptionData/binary>>, Acc) ->
+    [{error, {unknown_opt_data, OptionData}} | Acc].
 
 check_sum(16#FFFF, _IPH, _Length, _Data) ->
     no_checksum;
