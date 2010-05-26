@@ -94,7 +94,10 @@ decode_name(Msg, <<1:1,1:1,Ptr:14,Rest/binary>>, Acc) ->
      Rest};
 decode_name(Msg, <<Len:8,Name:Len/binary,Rest/binary>>, Acc) ->
     StrName = binary_to_list(Name),
-    decode_name(Msg, Rest, case Acc of [] -> StrName; _ -> [Acc, ".", StrName] end).
+    decode_name(Msg, Rest, case Acc of [] -> StrName; _ -> [Acc, ".", StrName] end);
+decode_name(Msg, Data, Acc) ->
+    erlang:error({decode_name, Data, Acc}).
+
 
 %% Data
 
