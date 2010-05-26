@@ -5,6 +5,7 @@
 %% @end
 -module(enet_pcap).
 
+-include_lib("kernel/include/file.hrl").
 -define(PCAP_MAGIC, <<16#d4,16#c3,16#b2,16#a1>>).
 -define(PCAP_HDR_SIZE, 24). % 4+2+2+4+4+4+4
 -define(PCAP_PKTHDR_SIZE, 16). % 4+4+4+4
@@ -25,8 +26,7 @@
          ,default_header/0
          ,decode_packet/1
          ,encode_packet/2
-         ,ts_to_localtime/1
-         ,ts_to_now/1
+         ,append_to_file/2
         ]).
 
 %% Example:
@@ -73,6 +73,35 @@ read_one_packet(#pcap_hdr{endianess=little}, File) ->
                            data=PktData}}
     end.
 
+append_to_file(Pkt = #pcap_pkt{}, FileName) ->
+    {_, Hdr, F} = open_file(FileName),
+    {ok, _} = file:position(F, eof),
+    ok = file:write(F, encode_packet(Hdr, Pkt)),
+    file:close(F);
+append_to_file(Packet, FileName) when is_binary(Packet) ->
+    append_to_file(#pcap_pkt{ts=now_to_ts(),
+                             orig_len=byte_size(Packet),
+                             data=Packet},
+                   FileName).
+
+open_file(FileName) ->
+    {ok, F} = file:open(FileName, [raw, binary, read, append]),
+    case file:read_file_info(FileName) of
+        {ok, #file_info{size=0}} ->
+            Hdr = default_header(),
+            ok = file:write(F, encode_header(Hdr)),
+            {created, Hdr, F};
+        {ok, #file_info{size=Sz}}
+          when Sz >= ?PCAP_HDR_SIZE ->
+            {opened, read_header(F), F}
+    end.
+
+read_header(F) ->
+    {ok, _} = file:position(F, bof),
+    {ok, BHdr} = file:read(F, ?PCAP_HDR_SIZE),
+    {Hdr, <<>>} = decode_header(BHdr),
+    Hdr.
+
 %%====================================================================
 %% PCAP timestamp conversion functions
 %%====================================================================
@@ -91,6 +120,12 @@ ts_to_now({UnixTS, MicroSecs}) ->
     {UnixTS div 1000000,
      UnixTS rem 1000000,
      MicroSecs}.
+
+now_to_ts() ->
+    now_to_ts(erlang:now()).
+now_to_ts({Mega, Secs, Micros}) ->
+    {Mega * 1000000 + Secs,
+     Micros}.
 
 unix_ts_to_datetime(Ts) when is_list(Ts) ->
     unix_ts_to_datetime(list_to_integer(Ts));
