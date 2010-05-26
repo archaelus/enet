@@ -9,7 +9,7 @@
 
 -behaviour(gen_event).
 %% API
--export([attach/1
+-export([attach/2
         ]).
 
 %% gen_event callbacks
@@ -18,7 +18,7 @@
 
 -include("types.hrl").
 
--record(state, {none}).
+-record(state, {dir}).
 
 %%%===================================================================
 %%% gen_event callbacks
@@ -31,9 +31,9 @@
 %% @spec attach() -> ok | {'EXIT', Reason} | term()
 %% @end
 %%--------------------------------------------------------------------
-attach(Interface) ->
+attach(Interface, DumpDir) ->
     gen_event:add_handler(enet_iface:event_manager(Interface),
-                          ?MODULE, []).
+                          ?MODULE, [DumpDir]).
 
 %%%===================================================================
 %%% gen_event callbacks
@@ -48,8 +48,8 @@ attach(Interface) ->
 %% @spec init(Args) -> {ok, State}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
-    {ok, #state{}}.
+init([DumpDir]) ->
+    {ok, #state{dir=DumpDir}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -66,14 +66,15 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_event({out, _Frame, _P}, State) ->
     {ok, State};
-handle_event({in, Frame, P = #eth{}}, State) ->
+handle_event({in, _Frame, P = #eth{}}, S = #state{dir=Dir}) ->
     try
         enet_codec:encode(eth, P)
     catch
         error:undef ->
-            [{Mod,Fn,Args} | _Stack] = erlang:get_stacktrace(),
+            [{Mod,Fn,Args} | Stack] = erlang:get_stacktrace(),
             error_logger:warning_msg("Unimplmented encoding function ~p:~p/~p.",
-                                     [Mod, Fn, length(Args)]);
+                                     [Mod, Fn, length(Args)]),
+            dump(error, undef, Mod, Fn, Args, Stack, Dir);
         Type:Exception ->
             {_,_,Mics} = erlang:now(),
             {_,{H, M, Secs}} = calendar:local_time(),
@@ -83,12 +84,22 @@ handle_event({in, Frame, P = #eth{}}, State) ->
             error_logger:warning_msg("~p:~p:~p Re-encoding error -- ~p:~p~nPacket: ~p~nCall: ~s~nStack: ~p",
                                      [H, M, Seconds, Type, Exception, P,
                                       fmt_call(Mod, Fn, Args),
-                                      Stack])
+                                      Stack]),
+            dump(Type, Exception, Mod, Fn, Args, Stack, Dir)
     end,
-    {ok, State};
+    {ok, S};
 handle_event(Event, State) ->
     error_logger:warning_msg("Unexpected event ~p", [Event]),
     {ok, State}.
+
+dump(Type, Exception, M, F, A, Stack, Dir) ->
+    FileName = io_lib:format("~p:~p_~p-~p:~p.dmp", [M, F, length(A), Type, Exception]),
+    FullName = filename:join(Dir, FileName),
+    file:write_file(FullName,
+                    iolist_to_binary(io_lib:format("%% ~p:~p -- ~w~n"
+                                                   "~s.~n",
+                                                   [Type, Exception, Stack,
+                                                    fmt_call(M, F, A)]))).
 
 %%--------------------------------------------------------------------
 %% @private
