@@ -3,3 +3,4 @@ priv/bin/*
 *.beam
 .gitignore
 ebin/*.app
+c_src/*.o
