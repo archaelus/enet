@@ -66,7 +66,7 @@ init([DumpDir]) ->
 %%--------------------------------------------------------------------
 handle_event({out, _Frame, _P}, State) ->
     {ok, State};
-handle_event({in, _Frame, P = #eth{}}, S = #state{dir=Dir}) ->
+handle_event({in, Frame, P = #eth{}}, S = #state{dir=Dir}) ->
     try
         enet_codec:encode(eth, P)
     catch
@@ -74,7 +74,7 @@ handle_event({in, _Frame, P = #eth{}}, S = #state{dir=Dir}) ->
             [{Mod,Fn,Args} | Stack] = erlang:get_stacktrace(),
             error_logger:warning_msg("Unimplmented encoding function ~p:~p/~p.",
                                      [Mod, Fn, length(Args)]),
-            dump(error, undef, Mod, Fn, Args, Stack, Dir);
+            dump(error, undef, Mod, Fn, Args, Stack, Frame, Dir);
         Type:Exception ->
             {_,_,Mics} = erlang:now(),
             {_,{H, M, Secs}} = calendar:local_time(),
@@ -85,21 +85,22 @@ handle_event({in, _Frame, P = #eth{}}, S = #state{dir=Dir}) ->
                                      [H, M, Seconds, Type, Exception, P,
                                       fmt_call(Mod, Fn, Args),
                                       Stack]),
-            dump(Type, Exception, Mod, Fn, Args, Stack, Dir)
+            dump(Type, Exception, Mod, Fn, Args, Stack, Frame, Dir)
     end,
     {ok, S};
 handle_event(Event, State) ->
     error_logger:warning_msg("Unexpected event ~p", [Event]),
     {ok, State}.
 
-dump(Type, Exception, M, F, A, Stack, Dir) ->
-    FileName = io_lib:format("~p:~p_~p-~p:~p.dmp", [M, F, length(A), Type, Exception]),
-    FullName = filename:join(Dir, FileName),
+dump(Type, Exception, M, F, A, Stack, Frame, Dir) ->
+    FileName = io_lib:format("~p:~p_~p-~p:~p", [M, F, length(A), Type, Exception]),
+    FullName = filename:join(Dir, FileName ++ ".dmp"),
     file:write_file(FullName,
                     iolist_to_binary(io_lib:format("%% ~p:~p -- ~w~n"
                                                    "~s.~n",
                                                    [Type, Exception, Stack,
-                                                    fmt_call(M, F, A)]))).
+                                                    fmt_call(M, F, A)]))),
+    enet_pcap:append_to_file(Frame, filename:join(Dir, FileName ++ ".pcap")).
 
 %%--------------------------------------------------------------------
 %% @private
