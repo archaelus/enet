@@ -16,7 +16,7 @@
          ,addr_len/0
         ]).
 
--include("types.hrl").
+-include("enet_types.hrl").
 -define(IP_VERSION, 4).
 -define(IP_MIN_HDR_LEN, 5).
 

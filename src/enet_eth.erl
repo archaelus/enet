@@ -13,7 +13,7 @@
          decode_addr/1, encode_addr/1,
          addr_len/0]).
 
--include("types.hrl").
+-include("enet_types.hrl").
 
 %%====================================================================
 %% API

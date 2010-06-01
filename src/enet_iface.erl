@@ -11,7 +11,7 @@
 
 -include_lib("logging.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include("types.hrl").
+-include("enet_types.hrl").
 
 %% API
 -export([start_link/2

@@ -10,7 +10,7 @@
 %% API
 -export([decode/2, encode/1]).
 
--include("types.hrl").
+-include("enet_types.hrl").
 
 %%====================================================================
 %% API

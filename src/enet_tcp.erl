@@ -12,7 +12,7 @@
          ,decode_port/1
          ,encode_port/1]).
 
--include("types.hrl").
+-include("enet_types.hrl").
 -define(TCP_HEADER_MIN_LEN, 20).
 
 %%====================================================================

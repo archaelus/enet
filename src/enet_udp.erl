@@ -15,7 +15,7 @@
          ,encode_port/1
         ]).
 
--include("types.hrl").
+-include("enet_types.hrl").
 -define(UDP_HEADER_LEN, 8).
 
 %%====================================================================
