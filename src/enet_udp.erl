@@ -40,6 +40,8 @@ decode(<<Src:16/big, Dst:16/big,
 decode(_Packet, _DecodeOpts) ->
     {error, bad_packet}.
 
+expand(#udp{data=Data}, _) when not is_binary(Data) ->
+    erlang:error({udp_payload_not_encoded, Data});
 
 expand(Pkt = #udp{length=undefined,
                   data=Data}, O) when is_binary(Data) ->
