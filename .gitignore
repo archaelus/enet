@@ -4,3 +4,4 @@ priv/bin/*
 .gitignore
 ebin/*.app
 c_src/*.o
+.eunit/*
