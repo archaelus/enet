@@ -21,7 +21,11 @@
                    data}).
 
 -export([foreach_file_packets/2
-         ,decode_header/1
+         ,read_file/1
+         ,file_foldl/3
+         ]).
+
+-export([ decode_header/1
          ,encode_header/1
          ,default_header/0
          ,decode_packet/1
@@ -44,6 +48,31 @@
 %%====================================================================
 %% API
 %%====================================================================
+
+read_file(FileName) ->
+    file_foldl(FileName,
+               fun (_Header, Packet, Acc) ->
+                       [Packet | Acc]
+               end,
+               []).
+
+file_foldl(FileName, FoldFun, Acc0)
+  when is_function(FoldFun, 3) ->
+    {ok, File} = file:open(FileName, [binary, read, raw]),
+    {ok, Hdr} = file:read(File, ?PCAP_HDR_SIZE),
+    {Header, <<>>} = decode_header(Hdr),
+    Acc = file_foldl(Header, File, FoldFun, Acc0),
+    file:close(File),
+    Acc.
+
+file_foldl(Header, File, FoldFun, Acc0)
+  when is_function(FoldFun, 3) ->
+    case read_one_packet(Header, File) of
+        eof -> Acc0;
+        {ok, Packet} ->
+            Acc = FoldFun(Header, Packet, Acc0),
+            file_foldl(Header, File, FoldFun, Acc)
+    end.
 
 foreach_file_packets(Filename, Fun) when is_function(Fun) ->
     {ok, File} = file:open(Filename, [binary, read, raw]),
