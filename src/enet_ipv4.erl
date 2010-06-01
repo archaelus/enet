@@ -20,6 +20,8 @@
 -define(IP_VERSION, 4).
 -define(IP_MIN_HDR_LEN, 5).
 
+-include_lib("eunit/include/eunit.hrl").
+
 %%====================================================================
 %% API
 %%====================================================================
@@ -53,7 +55,7 @@ decode(_Dgram, _) ->
 expand(Pkt = #ipv4{options=Opts}) when is_list(Opts) ->
     expand(Pkt#ipv4{options=encode_options(Opts)});
 expand(Pkt = #ipv4{hlen=H, options=Opts}) when not is_integer(H), is_binary(Opts) ->
-    expand(Pkt#ipv4{hlen=5 + (byte_size(Opts) div 4)});
+    expand(Pkt#ipv4{hlen=?IP_MIN_HDR_LEN + (byte_size(Opts) div 4)});
 expand(Pkt = #ipv4{flags=Flags}) when is_list(Flags) ->
     expand(Pkt#ipv4{flags=encode_flags(Flags)});
 expand(Pkt = #ipv4{src=Src}) when not (is_binary(Src) andalso byte_size(Src) =:= 4) ->
@@ -166,8 +168,20 @@ decode_option(Copy, {Class, Number}, <<Len:8/big, OptData/binary>>, Acc) ->
     decode_options(Rest, [#ipv4_opt{type=decode_option_type(Class, Number),
                                     copy=Copy, data=Data} | Acc]).
 
-encode_options([]) ->
-    <<>>.
+%% {ipv4_opt,rtralt,1,<<0,0>>}
+encode_options(Options) ->
+    iolist_to_binary([encode_option(Opt)
+                      || Opt <- Options]).
+
+encode_option(#ipv4_opt{type=Type,copy=Copy,data=Data}) ->
+    {Class, Number} = encode_option_type(Type),
+    OptSz = byte_size(Data) + 2,
+    <<Copy:1, Class:2, Number:5, OptSz:8/big, Data/binary>>.
+
+options_coding_test() ->
+    OptList = [{ipv4_opt,rtralt,1,<<0,0>>}],
+    ?assert( decode_options(encode_options(OptList)) =:= OptList ).
+
 
 check_header_checksum(Dgram,HLen,HdrChkSum) when is_binary(Dgram),
                                                  is_integer(HLen),
@@ -227,6 +241,34 @@ decode_option_type(0, 24) -> ump;
 decode_option_type(0, 25) -> qs;
 decode_option_type(0, 30) -> exp;
 decode_option_type(2, 30) -> exp.
+
+encode_option_type(eool) -> {0,  0};
+encode_option_type(nop) -> {0,  1};
+encode_option_type(sec) -> {0,  2};
+encode_option_type(lsr) -> {0,  3};
+encode_option_type(ts) -> {2,  4};
+encode_option_type('e-sec') -> {0,  5};
+encode_option_type(cipso) -> {0,  6};
+encode_option_type(rr) -> {0,  7};
+encode_option_type(sid) -> {0,  8};
+encode_option_type(ssr) -> {0,  9};
+encode_option_type(zsu) -> {0, 10};
+encode_option_type(mtup) -> {0, 11};
+encode_option_type(mtur) -> {0, 12};
+encode_option_type(finn) -> {2, 13};
+encode_option_type(visa) -> {0, 14};
+encode_option_type(encode) -> {0, 15};
+encode_option_type(imitd) -> {0, 16};
+encode_option_type(eip) -> {0, 17};
+encode_option_type(tr) -> {2, 18};
+encode_option_type(addext) -> {0, 19};
+encode_option_type(rtralt) -> {0, 20};
+encode_option_type(sdb) -> {0, 21};
+encode_option_type(dps) -> {0, 23};
+encode_option_type(ump) -> {0, 24};
+encode_option_type(qs) -> {0, 25};
+encode_option_type(exp) -> {0, 30}.
+%encode_option_type(exp) -> {2, 30}.
 
 decode_protocol(0)   -> ip;
 decode_protocol(1)   -> icmp;
