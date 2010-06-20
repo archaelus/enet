@@ -163,6 +163,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-fmt_call(M, F, A) ->
+fmt_call(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     PrintedArgs = [ io_lib:format("~p", [Arg]) || Arg <- A],
     io_lib:format("~p:~p(~s)", [M, F, string:join(PrintedArgs, ",")]).
