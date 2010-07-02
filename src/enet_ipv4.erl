@@ -9,6 +9,7 @@
 
 %% API
 -export([decode_addr/1, encode_addr/1
+         ,pseudo_hdr/1
          ,decode/2
          ,encode/1, expand/1
          ,decode_protocol/1, encode_protocol/1
@@ -51,6 +52,9 @@ decode(Dgram = <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
                                  [ IPH | DecodeOptions ])};
 decode(_Dgram, _) ->
     {error, bad_packet}.
+
+pseudo_hdr(#ipv4{src=SrcIP,dst=DestIP,proto=Proto}) ->
+    #ipv4_pseudo_hdr{src=SrcIP, dst=DestIP, proto=Proto}.
 
 expand(Pkt = #ipv4{options=Opts}) when is_list(Opts) ->
     expand(Pkt#ipv4{options=encode_options(Opts)});
