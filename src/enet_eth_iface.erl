@@ -5,7 +5,7 @@
 %% @doc Enet Interface process
 %% @end
 %%%-------------------------------------------------------------------
--module(enet_iface).
+-module(enet_eth_iface).
 
 -behaviour(gen_server).
 
