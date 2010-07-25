@@ -7,80 +7,85 @@
 %%%-------------------------------------------------------------------
 -module(enet_if_dump).
 
--behaviour(gen_event).
+-behaviour(gen_server).
 %% API
--export([attach/1
+-export([start_link/0
+         ,attach/1
+         ,attach/2
          ,change_format/2
          ,hexblock/1
         ]).
 
 %% gen_event callbacks
--export([init/1, handle_event/2, handle_call/2, 
+-export([init/1, handle_cast/2, handle_call/3, 
          handle_info/2, terminate/2, code_change/3]).
 
 -include("enet_types.hrl").
+-include_lib("logging.hrl").
 
 -record(state, {print=[time, space, direction, space, packet, nl
                        ,{hexblock, frame}, nl
                        ,frame]}).
 
-%%%===================================================================
-%%% gen_event callbacks
-%%%===================================================================
+start_link() ->
+    gen_server:start_link(?MODULE, [], []).
 
-%%--------------------------------------------------------------------
-%% @doc
-%% Adds an event handler
-%%
-%% @spec attach() -> ok | {'EXIT', Reason} | term()
-%% @end
-%%--------------------------------------------------------------------
 attach(Interface) ->
-    gen_event:add_handler(enet_iface:event_manager(Interface),
-                          ?MODULE, []).
+    {ok, Pid} = start_link(),
+    attach(Pid, Interface).
 
-change_format(Interface, Format) ->
-    gen_event:call(enet_iface:event_manager(Interface),
-                   ?MODULE, {change_format, Format}).
+attach(Dumper, Interface) ->
+    gen_server:call(Dumper, {sub, Interface}).
+
+change_format(Dumper, Format) ->
+    gen_server:call(Dumper,
+                   {change_format, Format}).
 
 %%%===================================================================
-%%% gen_event callbacks
+%%% gen_server callbacks
 %%%===================================================================
 
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Whenever a new event handler is added to an event manager,
-%% this function is called to initialize the event handler.
-%%
-%% @spec init(Args) -> {ok, State}
-%% @end
-%%--------------------------------------------------------------------
 init([]) ->
     {ok, #state{}}.
 
+handle_call({sub, Interface}, _From, State) ->
+    {reply, pubsub:sync_subscribe(Interface), State};
+handle_call({change_format, Format}, _From, State) ->
+    {reply, ok, State#state{print=Format}}.
+
+handle_cast(Msg, State) ->
+    ?WARN("Unexpected cast, ~p", [Msg]),
+    {noreply, State}.
+
+handle_info({enet, _IF, {tx, Frame}}, State) ->
+    P = enet_codec:decode(eth, Frame, [all]),
+    print([{dir, send}, {raw, Frame}, {packet, P}], State),
+    {noreply, State};
+handle_info({enet, _IF, {rx, Frame}}, State) ->
+    P = enet_codec:decode(eth, Frame, [all]),
+    print([{dir, recv}, {raw, Frame}, {packet, P}], State),
+    {noreply, State};
+handle_info(Msg, State) ->
+    print([time, space, {fmt, "msg: ~p", Msg}], State),
+    {noreply, State}.
+
+terminate(_Reason, _State) ->
+    ok.
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Whenever an event manager receives an event sent using
-%% gen_event:notify/2 or gen_event:sync_notify/2, this function is
-%% called for each installed event handler to handle the event.
+%% Convert process state when code is changed
 %%
-%% @spec handle_event(Event, State) ->
-%%                          {ok, State} |
-%%                          {swap_handler, Args1, State1, Mod2, Args2} |
-%%                          remove_handler
+%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-handle_event({out, Frame, P = #eth{}}, State) ->
-    print([{dir, send}, {raw, Frame}, {packet, P}], State),
-    {ok, State};
-handle_event({in, Frame, P = #eth{}}, State) ->
-    print([{dir, recv}, {raw, Frame}, {packet, P}], State),
-    {ok, State};
-handle_event(Event, State) ->
-    print([time, space, {fmt, "event: ~p", Event}], State),
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
 
 print(Info, #state{print=Format}) ->
     {Fmt, Args} = lists:foldl(fun (FmtArg, Acc) -> format(FmtArg, Info, Acc) end,
@@ -112,66 +117,6 @@ format(frame, Info, {Fmt, Args}) ->
 format({hexblock, frame}, Info, {Fmt, Args}) ->
     F = proplists:get_value(raw, Info),
     {Fmt ++ "Frame:~n~s", Args ++ [hexblock(F)]}.
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Whenever an event manager receives a request sent using
-%% gen_event:call/3,4, this function is called for the specified
-%% event handler to handle the request.
-%%
-%% @spec handle_call(Request, State) ->
-%%                   {ok, Reply, State} |
-%%                   {swap_handler, Reply, Args1, State1, Mod2, Args2} |
-%%                   {remove_handler, Reply}
-%% @end
-%%--------------------------------------------------------------------
-handle_call({change_format, Format}, State) ->
-    {ok, ok, State#state{print=Format}}.
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% This function is called for each installed event handler when
-%% an event manager receives any other message than an event or a
-%% synchronous request (or a system message).
-%%
-%% @spec handle_info(Info, State) ->
-%%                         {ok, State} |
-%%                         {swap_handler, Args1, State1, Mod2, Args2} |
-%%                         remove_handler
-%% @end
-%%--------------------------------------------------------------------
-handle_info(_Info, State) ->
-    {ok, State}.
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Whenever an event handler is deleted from an event manager, this
-%% function is called. It should be the opposite of Module:init/1 and
-%% do any necessary cleaning up.
-%%
-%% @spec terminate(Reason, State) -> void()
-%% @end
-%%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    ok.
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Convert process state when code is changed
-%%
-%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
-%% @end
-%%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
 
 hexblock(Bin) ->
     FullLineBytes = (byte_size(Bin) div 16) * 16,

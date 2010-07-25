@@ -16,7 +16,6 @@
 %% API
 -export([start_link/2
          ,start/2
-         ,event_manager/1
          ,send/2
         ]).
 
@@ -24,7 +23,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {dev, port, ev_pid, osifconfig}).
+-record(state, {dev, port, pubsub, osifconfig}).
 
 %%====================================================================
 %% API
@@ -39,9 +38,6 @@ start_link(Device, IfConfig) when is_list(Device), is_list(IfConfig) ->
 
 start(Device, IfConfig) when is_list(Device), is_list(IfConfig) ->
     gen_server:start(?MODULE, [#state{dev=Device}, IfConfig], []).
-
-event_manager(Interface) ->
-    gen_server:call(Interface, get_event_manager).
 
 send(Interface, Data) ->
     gen_server:cast(Interface, {send, Data}).
@@ -61,8 +57,9 @@ send(Interface, Data) ->
 %%--------------------------------------------------------------------
 init([S = #state{dev=Device}, IfConfig]) ->
     Port = enet_tap:open(Device),
-    {ok, EvPid} = gen_event:start_link(),
-    {ok, S#state{port=Port, ev_pid=EvPid, osifconfig=IfConfig}}.
+    {ok, S#state{port=Port
+                 ,osifconfig=IfConfig
+                 ,pubsub=pubsub:publish()}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -76,8 +73,9 @@ init([S = #state{dev=Device}, IfConfig]) ->
 %% @doc Call message handler callbacks
 %% @end
 %%--------------------------------------------------------------------
-handle_call(get_event_manager, _From, S = #state{ev_pid=Pid}) ->
-    {reply, Pid, S};
+handle_call({pubsub, Op}, _From, S = #state{pubsub=P}) ->
+    NewPub = pubsub:process_msg(Op, P),
+    {reply, ok, S#state{pubsub=NewPub}};
 handle_call(Call, _From, State) ->
     ?WARN("Unexpected call ~p.", [Call]),
     {noreply, State}.
@@ -93,12 +91,7 @@ handle_call(Call, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({send, Data}, S = #state{port=P}) when is_port(P) ->
     case Data of
-        Packet = #eth{} ->
-            Frame = enet_codec:encode(ethernet, Packet),
-            gen_event:notify(S#state.ev_pid, {out, Frame, Packet}),
-            port_command(P, Frame);
         Frame when is_binary(Frame) ->
-            gen_event:notify(S#state.ev_pid, {out, Frame, raw}),
             port_command(P, Frame);
         BadPacket ->
             ?WARN("Couldn't send bad packet: ~p", [BadPacket])
@@ -129,22 +122,16 @@ handle_info({Port, {data, PortPacket}}, S = #state{port=Port}) ->
         {frame, Frame} ->
             handle_frame(Frame, S)
     end;
+handle_info({pubsub, Op}, S = #state{pubsub=P}) ->
+    {noreply, S#state{pubsub=pubsub:process_msg(Op, P)}};
+handle_info(PubSubOp = {'DOWN', _, _, _, _}, S = #state{pubsub=P}) ->
+    {noreply, S#state{pubsub=pubsub:process_msg(PubSubOp, P)}};
 handle_info(Info, State) ->
     ?WARN("Unexpected info ~p", [Info]),
     {noreply, State}.
 
-handle_frame(Frame, S = #state{}) ->
-    try enet_codec:decode(ethernet, Frame, [all]) of
-        {error, Reason} ->
-            ?WARN("Couldn't decode ethernet frame: ~p~nFrame: ~p",
-                  [Reason, Frame]);
-        Packet ->
-            gen_event:notify(S#state.ev_pid, {in, Frame, Packet})
-    catch
-        Class:Error ->
-            ?ERR("Couldn't decode ethernet frame: ~p:~p~nStack: ~p~nFrame: ~p",
-                  [Class, Error, erlang:get_stacktrace(), Frame])
-    end,
+handle_frame(Frame, S = #state{pubsub=P}) ->
+    pubsub:send({enet, {?MODULE, self()}, {rx, Frame}}, P),
     {noreply, S}.
 
 %%--------------------------------------------------------------------
