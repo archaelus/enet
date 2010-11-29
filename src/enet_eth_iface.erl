@@ -23,7 +23,15 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {dev, port, pubsub, osifconfig}).
+-define(DEFAULT_MAC, <<16#00,16#00,16#00,16#aa,16#bb,16#cc>>).
+
+-record(state, {dev :: string(),
+                mac = ?DEFAULT_MAC :: ethernet_address(),
+                port :: port(),
+                pubsub = pubsub:new() :: pubsub:pubsub(),
+                osifconfig :: string(),
+                promisc = false :: boolean()
+               }).
 
 %%====================================================================
 %% API
@@ -34,7 +42,8 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Device, IfConfig) when is_list(Device), is_list(IfConfig) ->
-    gen_server:start_link(?MODULE, [#state{dev=Device}, IfConfig], []).
+    gen_server:start_link(?MODULE, [#state{dev=Device,
+                                           mac=?DEFAULT_MAC}, IfConfig], []).
 
 start(Device, IfConfig) when is_list(Device), is_list(IfConfig) ->
     gen_server:start(?MODULE, [#state{dev=Device}, IfConfig], []).
@@ -59,7 +68,7 @@ init([S = #state{dev=Device}, IfConfig]) ->
     Port = enet_tap:open(Device),
     {ok, S#state{port=Port
                  ,osifconfig=IfConfig
-                 ,pubsub=pubsub:publish()}}.
+                 ,pubsub=pubsub:new()}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -89,13 +98,10 @@ handle_call(Call, _From, State) ->
 %% @doc Cast message handler callbacks
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({send, Data}, S = #state{port=P}) when is_port(P) ->
-    case Data of
-        Frame when is_binary(Frame) ->
-            port_command(P, Frame);
-        BadPacket ->
-            ?WARN("Couldn't send bad packet: ~p", [BadPacket])
-    end,
+handle_cast({send, #raw{data=Frame}}, S = #state{port=P})
+  when is_port(P), is_binary(Frame) ->
+    publish_tx(Frame, unknown, S),
+    port_command(P, Frame),
     {noreply, S};
 handle_cast(Msg, State) ->
     ?WARN("Unexpected cast ~p", [Msg]),
@@ -130,8 +136,19 @@ handle_info(Info, State) ->
     ?WARN("Unexpected info ~p", [Info]),
     {noreply, State}.
 
-handle_frame(Frame, S = #state{pubsub=P}) ->
-    pubsub:send({enet, {?MODULE, self()}, {rx, Frame}}, P),
+handle_frame(Frame, S) ->
+    case enet_codec:decode(eth, Frame, [eth]) of
+        E = #eth{dst=D} when D =:= S#state.mac; D =:= broadcast ->
+            %% Frames destined for me.
+            publish_rx(Frame, E, S);
+        E = #eth{} when S#state.promisc =:= true ->
+            %% Frames destined for something else but we're in promiscuous mode.
+            publish_rx(Frame, E, S);
+        Frame when S#state.promisc =:= true ->
+            publish_rx(Frame, unknown, S);
+        _ ->
+            drop_frame
+    end,
     {noreply, S}.
 
 %%--------------------------------------------------------------------
@@ -155,9 +172,20 @@ terminate(_Reason, _State) ->
 %% @doc Convert process state when code is changed
 %% @end
 %%--------------------------------------------------------------------
+code_change(_OldVsn, {state, Dev, Port, Pubsub, Osifconfig}, _Extra) ->
+    {state, Dev, ?DEFAULT_MAC, Port, Pubsub, Osifconfig};
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+publish_rx(Frame, Decoded, S = #state{}) ->
+    publish({rx, Frame, Decoded}, S).
+
+publish_tx(Frame, Term, S = #state{}) ->
+    publish({tx, Frame, Term}, S).
+
+publish(Message, #state{pubsub=P}) ->
+    pubsub:send({enet, {?MODULE, self()}, Message}, P).
