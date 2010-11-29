@@ -1,4 +1,7 @@
 
+-record(raw, {data :: binary()
+             }).
+
 -type ethernet_address() :: list() | << _:48 >>.
 -type ethertype() :: atom() | 0..65535.
 
