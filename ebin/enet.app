@@ -20,8 +20,9 @@
               ,enet_udp
               ,pubsub
               ,enet_codec_tests
-              ,enet_iface
+              ,enet_eth_iface
               ,enet_if_dump
+              ,enet_host
              ]}
   ,{registered, []}
  ]}.
