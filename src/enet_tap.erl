@@ -8,8 +8,10 @@
 -module(enet_tap).
 
 %% API
--export([open/0, open/1,
-         if_config/2,
+-export([open/0
+         ,open/1
+         ,if_config/2
+         ,close/1
          ]).
 
 -compile(export_all).
