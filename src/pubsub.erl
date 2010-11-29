@@ -8,7 +8,7 @@
 -module(pubsub).
 
 %% API
--export([publish/0
+-export([new/0
          ,add_subscriber/2
          ,remove_subscriber/2
          ,process_msg/2
@@ -20,14 +20,20 @@
         ]).
 
 -record(pubsub, {subscribers = []}).
+-define(FILTER_ALL, all).
+-record(sub, {pid :: pid(),
+              filter = ?FILTER_ALL :: function() | 'all'
+             }).
 
 -include_lib("eunit/include/eunit.hrl").
+
+-opaque pubsub() :: #pubsub{}.
 
 %%====================================================================
 %% API
 %%====================================================================
 
-publish() ->
+new() ->
     #pubsub{}.
 
 sync_subscribe(Publisher) ->
@@ -36,16 +42,21 @@ sync_subscribe(Publisher) ->
 sync_unsubscribe(Publisher) ->
     gen_server:call(Publisher, {?MODULE, {unsub, self()}}).
 
-add_subscriber(Pid, P = #pubsub{subscribers=Subs}) ->
+add_subscriber(Pid, P = #pubsub{}) when is_pid(Pid) ->
+    add_subscriber(Pid, ?FILTER_ALL, P).
+
+add_subscriber(Pid, Fn, P = #pubsub{subscribers=Subs})
+  when is_pid(Pid),
+       Fn =:= ?FILTER_ALL; is_function(Fn, 1) ->
     case subscribed(Pid, P) of
         false ->
-            P#pubsub{subscribers=[Pid | Subs]};
+            P#pubsub{subscribers=[#sub{pid=Pid} | Subs]};
         true ->
             P
     end.
 
-remove_subscriber(Pid, P = #pubsub{subscribers=Subs}) ->
-    P#pubsub{subscribers=lists:delete(Pid, Subs)}.
+remove_subscriber(Pid, P = #pubsub{subscribers=Subs}) when is_pid(Pid) ->
+    P#pubsub{subscribers=lists:keydelete(Pid, #sub.pid, Subs)}.
 
 process_msg({sub, Pid}, P = #pubsub{}) ->
     add_subscriber(Pid, P);
@@ -55,18 +66,21 @@ process_msg({'DOWN', _, _, Pid, _}, P) ->
     remove_subscriber(Pid, P).
 
 send(Message, #pubsub{subscribers=Subs}) ->
-    [ Pid ! Message || Pid <- Subs ],
+    [ Pid ! Message
+      || #sub{pid=Pid, filter=Fn} <- Subs,
+         Fn =:= ?FILTER_ALL orelse
+         Fn(Message) ],
     ok.
 
-subscribed(Pid, #pubsub{subscribers=Subs}) ->
-    lists:member(Pid, Subs).
+subscribed(Pid, #pubsub{subscribers=Subs}) when is_pid(Pid) ->
+    lists:keymember(Pid, #sub.pid, Subs).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
 sub_test() ->
-    P1 = publish(),
+    P1 = new(),
     Pid = self(),
     P2 = process_msg({sub, Pid}, P1),
     ?assertMatch(true, subscribed(Pid, P2)),
