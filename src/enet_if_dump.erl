@@ -35,7 +35,8 @@ attach(Interface) ->
     attach(Pid, Interface).
 
 attach(Dumper, Interface) ->
-    gen_server:call(Dumper, {sub, Interface}).
+    gen_server:call(Dumper, {sub, Interface}),
+    {ok, Dumper}.
 
 change_format(Dumper, Format) ->
     gen_server:call(Dumper,
@@ -61,9 +62,18 @@ handle_info({enet, _IF, {tx, Frame}}, State) ->
     P = enet_codec:decode(eth, Frame, [all]),
     print([{dir, send}, {raw, Frame}, {packet, P}], State),
     {noreply, State};
-handle_info({enet, _IF, {rx, Frame}}, State) ->
-    P = enet_codec:decode(eth, Frame, [all]),
-    print([{dir, recv}, {raw, Frame}, {packet, P}], State),
+handle_info({enet, _IF, {RX, Frame}}, State)
+  when RX =:= rx;
+       RX =:= promisc_rx ->
+    print([{dir, recv}, {raw, Frame}], State),
+    {noreply, State};
+handle_info({enet, _IF, {RX, Frame, Pkt}}, State)
+  when RX =:= rx;
+       RX =:= promisc_rx ->
+    print([{dir, recv},
+           {raw, Frame},
+           {packet, enet_codec:decode(eth, Frame, [all])}],
+          State),
     {noreply, State};
 handle_info(Msg, State) ->
     print([time, space, {fmt, "msg: ~p", Msg}], State),
