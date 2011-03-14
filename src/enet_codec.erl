@@ -23,10 +23,12 @@ module(eth) -> enet_eth;
 module(ethernet) -> enet_eth;
 module(arp) -> enet_arp;
 module(ipv4) -> enet_ipv4;
+module(ipv6) -> enet_ipv6;
 module(udp) -> enet_udp;
 module(dns) -> enet_dns;
 module(icmp) -> enet_icmp;
-module(tcp) -> enet_tcp.
+module(tcp) -> enet_tcp;
+module(null) -> enet_nullink.
 
 decode(Type, Data) ->
     decode(Type, Data, [Type]).

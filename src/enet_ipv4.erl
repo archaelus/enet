@@ -33,7 +33,7 @@ decode(Dgram = <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
     OptsLen = 4 * (HLen - ?IP_MIN_HDR_LEN),
     <<Opts:OptsLen/binary, Data/binary>> = RestDgram,
     Protocol = decode_protocol(Proto),
-    IPH = #ipv4_pseudo_hdr{src=SrcIP, dst=DestIP, proto=Proto},
+    IPH = #ip_pseudo_hdr{src=SrcIP, dst=DestIP, proto=Proto},
     #ipv4{vsn=?IP_VERSION,
           hlen=HLen,
           diffserv=DiffServ,
@@ -67,7 +67,7 @@ expand(Pkt = #ipv4{proto=P, data=D,
   when not is_binary(D), is_atom(P), is_binary(Src),
        is_binary(Dst) ->
     Proto = encode_protocol(P),
-    PsuedoHdr = #ipv4_pseudo_hdr{src=Src,dst=Dst,proto=Proto},
+    PsuedoHdr = #ip_pseudo_hdr{src=Src,dst=Dst,proto=Proto},
     expand(Pkt#ipv4{data=enet_codec:encode(P, D, PsuedoHdr)});
 expand(Pkt = #ipv4{proto=P}) when not is_integer(P) ->
     expand(Pkt#ipv4{proto=encode_protocol(P)});
@@ -313,8 +313,8 @@ decode_protocol(39)  -> 'tp++';
 decode_protocol(40)  -> il;
 decode_protocol(41)  -> ipv6;
 decode_protocol(42)  -> sdrp;
-decode_protocol(43)  -> 'ipv6-route';
-decode_protocol(44)  -> 'ipv6-frag';
+decode_protocol(43)  -> ipv6_route;
+decode_protocol(44)  -> ipv6_frag;
 decode_protocol(45)  -> idrp;
 decode_protocol(46)  -> rsvp;
 decode_protocol(47)  -> gre;
@@ -328,9 +328,9 @@ decode_protocol(54)  -> narp;
 decode_protocol(55)  -> mobile;
 decode_protocol(56)  -> tlsp;
 decode_protocol(57)  -> skip;
-decode_protocol(58)  -> 'ipv6-icmp';
-decode_protocol(59)  -> 'ipv6-nonxt';
-decode_protocol(60)  -> 'ipv6-opts';
+decode_protocol(58)  -> icmp6;
+decode_protocol(59)  -> ipv6_no_next;
+decode_protocol(60)  -> ipv6_opts;
 decode_protocol(62)  -> cftp;
 decode_protocol(64)  -> 'sat-expak';
 decode_protocol(65)  -> kryptolan;
@@ -444,8 +444,8 @@ encode_protocol('tp++')        -> 39;
 encode_protocol(il)            -> 40;
 encode_protocol(ipv6)          -> 41;
 encode_protocol(sdrp)          -> 42;
-encode_protocol('ipv6-route')  -> 43;
-encode_protocol('ipv6-frag')   -> 44;
+encode_protocol(ipv6_route)    -> 43;
+encode_protocol(ipv6_frag)     -> 44;
 encode_protocol(idrp)          -> 45;
 encode_protocol(rsvp)          -> 46;
 encode_protocol(gre)           -> 47;
@@ -459,9 +459,9 @@ encode_protocol(narp)          -> 54;
 encode_protocol(mobile)        -> 55;
 encode_protocol(tlsp)          -> 56;
 encode_protocol(skip)          -> 57;
-encode_protocol('ipv6-icmp')   -> 58;
-encode_protocol('ipv6-nonxt')  -> 59;
-encode_protocol('ipv6-opts')   -> 60;
+encode_protocol(icmp6)         -> 58;
+encode_protocol(ipv6_no_next)  -> 59;
+encode_protocol(ipv6_opts)   -> 60;
 encode_protocol(cftp)          -> 62;
 encode_protocol('sat-expak')   -> 64;
 encode_protocol(kryptolan)     -> 65;

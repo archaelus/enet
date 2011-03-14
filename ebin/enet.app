@@ -12,7 +12,9 @@
               ,enet_eth
               ,enet_icmp
               ,enet_ipv4
+              ,enet_ipv6
               ,enet_pcap
+              ,enet_nullink
               ,enet_services
               ,enet_srcgen
               ,enet_tap

@@ -287,8 +287,10 @@ encode_packet(big, #pcap_pkt{ts={TS_Secs,TS_USecs},
      Data/binary>>.
 
 
+decode_linktype(0) -> loopback;
 decode_linktype(1) -> ethernet;
 decode_linktype(N) when is_integer(N) -> N.
 
 encode_linktype(N) when is_integer(N) -> N;
+encode_linktype(loopback) -> 0;
 encode_linktype(ethernet) -> 1.
