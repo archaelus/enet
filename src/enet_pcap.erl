@@ -22,6 +22,7 @@
 
 -export([foreach_file_packets/2
          ,read_file/1
+         ,read_file/2
          ,file_foldl/3
          ]).
 
@@ -55,6 +56,19 @@ read_file(FileName) ->
                        [Packet | Acc]
                end,
                []).
+
+read_file(FileName, Opts) ->
+    case proplists:get_value(headers, Opts) of
+        true ->
+            file_foldl(FileName,
+                       fun (Header, Packet, {_,Acc}) ->
+                               {Header,[Packet | Acc]}
+                       end,
+                       {undefined,[]});
+        false ->
+            read_file(FileName)
+    end.
+
 
 file_foldl(FileName, FoldFun, Acc0)
   when is_function(FoldFun, 3) ->
