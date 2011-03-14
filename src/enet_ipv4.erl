@@ -14,6 +14,7 @@
          ,decode_protocol/1, encode_protocol/1
          ,header_checksum/1
          ,addr_len/0
+         ,addr_to_list/1, list_to_addr/1
         ]).
 
 -include("enet_types.hrl").
@@ -128,13 +129,18 @@ encode(Pkt) ->
 
 addr_len() -> 4.
 
-decode_addr(B) when is_binary(B) ->
+decode_addr(B) when is_binary(B) -> B.
+encode_addr(B) when is_binary(B) -> B.
+
+addr_to_list(B) when is_binary(B) ->
     string:join([ erlang:integer_to_list(N) || <<N:8>> <= B], ".").
 
-encode_addr(A) when is_binary(A), byte_size(A) =:= 6 -> A;
-encode_addr(L) when is_list(L) ->
+list_to_addr(A) when is_binary(A), byte_size(A) =:= 4 -> A;
+list_to_addr(L) when is_list(L) ->
     << << (erlang:list_to_integer(Oct)):8 >>
        || Oct <- string:tokens(L, ".") >>.
+
+
 
 decode_flags(<<Evil:1, DF:1, MF:1>>) ->
     lists:foldl(fun ({Flag, 1}, Acc) -> [Flag | Acc];
