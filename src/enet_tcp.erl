@@ -24,7 +24,7 @@
 %%====================================================================
 
 decode(<<Src:16/big, Dst:16/big,
-        Sequence:32/big, Ack:32/big,
+        Sequence:32/big, AckNo:32/big,
         DataOffset:4, Reserved:6,
         Urg:1, Ack:1, Psh:1, Rst:1, Syn:1, Fin:1,
         Window:16/big,
@@ -38,7 +38,7 @@ decode(<<Src:16/big, Dst:16/big,
     #tcp{src_port=decode_port(Src)
          ,dst_port=decode_port(Dst)
          ,seq_no=Sequence
-         ,ack_no=Ack
+         ,ack_no=AckNo
          ,data_offset=DataOffset
          ,reserved=Reserved
          ,urg=decode_flag(Urg), ack=decode_flag(Ack), psh=decode_flag(Psh)
