@@ -95,7 +95,8 @@ There are a number of debugging aides available:
 
       1> enet_host:start(test_h),
          enet_host:attach_iface(test_h, tap0, fun () -> enet_eth_iface:start("tap0", "192.168.2.1/24 up") end),
-         enet_host:attach(test_h, tap0, fun (Pid) -> enet_if_dump:attach(Pid) end).
+         enet_host:attach(test_h, tap0, fun (Pid) -> enet_if_dump:attach(Pid) end),
+         enet_host:attach(test_h, tap0, fun (Pid) -> enet_arp_cache:attach(Pid) end).
 #         enet_if_arp:attach(Pid),
 #         enet_if_arp:add_entry(Pid, "4A:6E:01:1B:19:8F", "192.168.2.2"),
 #         enet_if_icmp:attach(Pid),

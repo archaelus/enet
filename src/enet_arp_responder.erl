@@ -2,34 +2,32 @@
 %% @copyright Geoff Cant
 %% @author Geoff Cant <nem@erlang.geek.nz>
 %% @version {@vsn}, {@date} {@time}
-%% @doc Network Host
+%% @doc ARP address cache and translator
 %% @end
 %%%-------------------------------------------------------------------
--module(enet_host).
+-module(enet_arp_responder).
 
 -behaviour(gen_server).
 
--include_lib("logging.hrl").
+-include("logging.hrl").
+-include("enet_types.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([start_link/1, start/1]).
--export([attach_iface/3
-         ,attach/3]).
+-export([start_link/0]).
+-export([attach/2
+         ,eth_addr/2
+         ,ip_addr/2
+         ]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(ethif, {name,
-                pid
-               }).
+-record(state, {tid}).
 
--record(state, {ifs = [] :: [#ethif{}],
-                arp_cache :: pid(),
-                name :: atom()
-               }).
-
+%% Table entries
+-define(ARP_ENTRY(Mac, Addr), {Addr, Mac}).
 
 %%====================================================================
 %% API
@@ -39,17 +37,23 @@
 %% @doc Starts the server
 %% @end
 %%--------------------------------------------------------------------
-start_link(Name) ->
-    gen_server:start_link({local, Name}, ?MODULE, [Name], []).
+start_link() ->
+    gen_server:start_link(?MODULE, [], []).
 
-start(Name) ->
-    gen_server:start({local, Name}, ?MODULE, [Name], []).
+attach(Interface) ->
+    {ok, Pid} = start_link(),
+    attach(Pid, Interface).
 
-attach_iface(Host, Name, StartLinkFn) when is_function(StartLinkFn, 0) ->
-    gen_server:call(Host, {attach_iface, Name, StartLinkFn}).
+attach(Dumper, Interface) ->
+    gen_server:call(Dumper, {sub, Interface}),
+    {ok, Dumper}.
 
-attach(Host, If, AttachFn) when is_function(AttachFn, 1) ->
-    gen_server:call(Host, {attach, If, AttachFn}).
+eth_addr(Cache, IpAddr) ->
+    gen_server:call(Cache, {eth_addr, IpAddr}).
+
+ip_addr(Cache, EthAddr) ->
+    gen_server:call(Cache, {ip_addr, EthAddr}).
+
 
 %%====================================================================
 %% gen_server callbacks
@@ -64,8 +68,9 @@ attach(Host, If, AttachFn) when is_function(AttachFn, 1) ->
 %% @doc Initialises the server's state
 %% @end
 %%--------------------------------------------------------------------
-init([Name]) ->
-    {ok, #state{name=Name}}.
+init([]) ->
+    Tid = ets:new(?MODULE, []),
+    {ok, #state{tid=Tid}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -79,39 +84,9 @@ init([Name]) ->
 %% @doc Call message handler callbacks
 %% @end
 %%--------------------------------------------------------------------
-handle_call({attach_iface, Name, StartLinkFn}, _From,
-            State = #state{ifs=IFS}) ->
-    case lists:keymember(Name, #ethif.name, IFS) of
-        true ->
-            {reply, {error, {duplicate_if, Name}}, State};
-        false ->
-            try StartLinkFn() of
-                {ok, Pid} ->
-                    {reply, ok, State#state{ifs=[#ethif{name=Name, pid=Pid} | IFS]}};
-                Else ->
-                    {reply, {error, {if_failed, Else}}, State}
-            catch
-                Type:Error ->
-                    {reply, {error, {if_failed, {Type, Error}}}, State}
-            end
-    end;
 
-handle_call({attach, If, AttachFn}, _From,
-            State = #state{ifs=IFS}) ->
-    case lists:keyfind(If, #ethif.name, IFS) of
-        #ethif{name=If, pid=Pid} ->
-            try AttachFn(Pid) of
-                R = {ok, _Pid} ->
-                    {reply, R, State};
-                Else ->
-                    {reply, {error, {attach_failed, Else}}, State}
-            catch
-                Type:Error ->
-                    {reply, {error, {attach_failed, {Type, Error}}}, State}
-            end;
-        false ->
-            {reply, {error, {no_such_if, If}}, State}
-    end;
+handle_call({sub, Interface}, _From, State) ->
+    {reply, pubsub:sync_subscribe(Interface), State};
 
 handle_call(Call, _From, State) ->
     ?WARN("Unexpected call ~p.", [Call]),
@@ -139,6 +114,22 @@ handle_cast(Msg, State) ->
 %% @doc Non gen-server message handler callbacks
 %% @end
 %%--------------------------------------------------------------------
+
+%% handle_info({enet, _IF, {tx, Frame}}, State) ->
+%%     P = enet_codec:decode(eth, Frame, [all]),
+%%     print([{dir, send}, {raw, Frame}, {packet, P}], State),
+%%     {noreply, State};
+%% handle_info({enet, _IF, {RX, Frame}}, State)
+%%   when RX =:= rx;
+%%        RX =:= promisc_rx ->
+%%     print([{dir, recv}, {raw, Frame}], State),
+%%     {noreply, State};
+handle_info({enet, IF, {RX, Frame, Pkt = #eth{type=arp}}}, State)
+  when RX =:= rx;
+       RX =:= promisc_rx ->
+    handle_arp_rx(IF, Pkt, State),
+    {noreply, State};
+
 handle_info(Info, State) ->
     ?WARN("Unexpected info ~p", [Info]),
     {noreply, State}.
@@ -167,3 +158,42 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+handle_arp_rx(IF, #eth{type=arp,data=Pkt}, State) ->
+    try enet_codec:decode(arp, Pkt) of
+        {error, bad_packet} ->
+            %% XXX - log corrupt arp packet somehow?
+            ignore;
+        #arp{} = Q ->
+            handle_arp_rx(IF, Q, State)
+    catch
+        _Type:_Error ->
+            %% XXX - couldn't decode Pkt, Type:Error.
+            ignore
+    end;
+
+handle_arp_rx(IF,
+              Q = #arp{htype = ethernet,
+                       ptype = Type,
+                       op = request,
+                       sender = Sender = {SMac, SAddr},
+                       target = {TMac, TAddr}
+                      },
+              State) ->
+    case cache_lookup(TAddr, State) of
+        [] ->
+            ignore;
+        [?ARP_ENTRY(CMac, CAddr)] ->
+            R = #arp{op = reply,
+                     htype = ethernet,
+                     ptype = Type,
+                     sender = {CMac, CAddr},
+                     target = Sender
+                    },
+            Reply = #eth{dst=SMac, type=arp, data=enet_codec:encode(arp, R)},
+            enet_host:send(Reply)
+    end.
+
+
+cache_lookup(Key, #state{tid=T}) ->
+    ets:lookup(T, Key).
