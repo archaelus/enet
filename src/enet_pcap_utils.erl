@@ -7,8 +7,10 @@
 -include("enet_pcap.hrl").
 -include("enet_types.hrl").
 
--export([tcp_packet_array/1,
-         tcp_flows/1]).
+-export([tcp_packet_array/1
+         ,tcp_flows/1
+         ,tcp_establishment_times/1         
+        ]).
 
 tcp_packet_array(File) ->
     enet_pcap:file_foldl(File,
@@ -43,4 +45,12 @@ tcp_flow_fold(Idx,
             erlang:max(Src,Dst)},
     dict:append(Flow, Idx, FlowD).
 
-                                          
+tcp_establishment_times(File) ->
+    {PacketArray,_Count} = tcp_packet_array(File),
+    Times = [ begin
+                  {Atime,_} = array:get(A, PacketArray),
+                  {Btime,_} = array:get(B, PacketArray),
+                  {Flow, erlang:abs(Atime - Btime)}
+              end
+              || {Flow, [A, B]} <- tcp_flows(PacketArray)],
+    lists:reverse(lists:keysort(2, Times)).
