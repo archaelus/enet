@@ -1,4 +1,7 @@
 
+-record(raw, {data :: binary()
+             }).
+
 -type ethernet_address() :: list() | << _:48 >>.
 -type ethertype() :: atom() | 0..65535.
 
@@ -8,7 +11,7 @@
               ,data :: term()
              }).
 
--type ipv4_proto() :: atom() | 0..65535.
+-type ip_proto() :: atom() | 0..255.
 -type ipv4_address() :: list() | << _:32 >>.
 -type arp_op() :: 'request' | 'reply' | 0..65535.
 -type l3_proto() :: atom() | 0..65535.
@@ -41,18 +44,13 @@
                ,flags = <<0:3>> :: ipv4_flags()
                ,frag_offset = 0 :: non_neg_integer()
                ,ttl = 64 :: non_neg_integer()
-               ,proto :: ipv4_proto()
+               ,proto :: ip_proto()
                ,hdr_csum :: checksum()
                ,src :: ipv4_address()
                ,dst :: ipv4_address()
                ,options = [] :: list(ipv4_option()) | binary()
                ,data :: term()
               }).
-
--record(ipv4_pseudo_hdr, {src :: << _:32 >>
-                         ,dst :: << _:32 >>
-                         ,proto :: 0..65535
-                        }).
 
 -type port_no() :: 0..65535.
 
@@ -94,3 +92,31 @@
               ,options :: binary() | [tcp_option()]
               ,data :: term()
              }).
+
+-type af_type() :: atom() | 0..255.
+
+-record(null, {type :: af_type(),
+               data :: term()}).
+
+-type ipv6_addr() :: localhost | << _:128 >>.
+
+-record(ipv6, {version = 6,
+               traffic_class :: non_neg_integer(),
+               flow_label :: bitstring(),
+               payload_len :: non_neg_integer(),
+               next_hdr :: ip_proto(),
+               hop_count = 255 :: 0..255,
+               src :: ipv6_addr(),
+               dst :: ipv6_addr(),
+               payload :: term()}).
+
+-record(ipv6_frag, {offset,
+                    m,
+                    id}).
+
+-record(ipv6_route, {type, segments, addresses}).
+
+-record(ip_pseudo_hdr, {src :: << _ : 32 >> | << _:128 >>
+                       ,dst :: << _ : 32 >> | << _:128 >>
+                       ,proto :: 0..255
+                       }).

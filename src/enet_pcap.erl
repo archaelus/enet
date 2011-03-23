@@ -6,22 +6,11 @@
 -module(enet_pcap).
 
 -include_lib("kernel/include/file.hrl").
--define(PCAP_MAGIC, <<16#d4,16#c3,16#b2,16#a1>>).
--define(PCAP_HDR_SIZE, 24). % 4+2+2+4+4+4+4
--define(PCAP_PKTHDR_SIZE, 16). % 4+4+4+4
--record(pcap_hdr, {version
-                   ,tz_correction
-                   ,sigfigures
-                   ,snaplen
-                   ,datalinktype
-                   ,endianess
-                  }).
--record(pcap_pkt, {ts,
-                   orig_len,
-                   data}).
+-include("enet_pcap.hrl"). 
 
 -export([foreach_file_packets/2
          ,read_file/1
+         ,read_file/2
          ,file_foldl/3
          ]).
 
@@ -55,6 +44,19 @@ read_file(FileName) ->
                        [Packet | Acc]
                end,
                []).
+
+read_file(FileName, Opts) ->
+    case proplists:get_value(headers, Opts) of
+        true ->
+            file_foldl(FileName,
+                       fun (Header, Packet, {_,Acc}) ->
+                               {Header,[Packet | Acc]}
+                       end,
+                       {undefined,[]});
+        false ->
+            read_file(FileName)
+    end.
+
 
 file_foldl(FileName, FoldFun, Acc0)
   when is_function(FoldFun, 3) ->
@@ -287,8 +289,10 @@ encode_packet(big, #pcap_pkt{ts={TS_Secs,TS_USecs},
      Data/binary>>.
 
 
+decode_linktype(0) -> loopback;
 decode_linktype(1) -> ethernet;
 decode_linktype(N) when is_integer(N) -> N.
 
 encode_linktype(N) when is_integer(N) -> N;
+encode_linktype(loopback) -> 0;
 encode_linktype(ethernet) -> 1.

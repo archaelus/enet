@@ -2,49 +2,58 @@
 %% @copyright Geoff Cant
 %% @author Geoff Cant <nem@erlang.geek.nz>
 %% @version {@vsn}, {@date} {@time}
-%% @doc Enet Interface process
+%% @doc ARP address cache and translator
 %% @end
 %%%-------------------------------------------------------------------
--module(enet_iface).
+-module(enet_arp_responder).
 
 -behaviour(gen_server).
 
--include_lib("logging.hrl").
--include_lib("eunit/include/eunit.hrl").
+-include("logging.hrl").
 -include("enet_types.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([start_link/2
-         ,start/2
-         ,event_manager/1
-         ,send/2
-        ]).
+-export([start_link/0]).
+-export([attach/2
+         ,eth_addr/2
+         ,ip_addr/2
+         ]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {dev, port, ev_pid, osifconfig}).
+-record(state, {tid}).
+
+%% Table entries
+-define(ARP_ENTRY(Mac, Addr), {Addr, Mac}).
 
 %%====================================================================
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% @spec start_link(Device, OSIfconfig) -> {ok,Pid} | ignore | {error,Error}
+%% @spec start_link() -> {ok,Pid} | ignore | {error,Error}
 %% @doc Starts the server
 %% @end
 %%--------------------------------------------------------------------
-start_link(Device, IfConfig) when is_list(Device), is_list(IfConfig) ->
-    gen_server:start_link(?MODULE, [#state{dev=Device}, IfConfig], []).
+start_link() ->
+    gen_server:start_link(?MODULE, [], []).
 
-start(Device, IfConfig) when is_list(Device), is_list(IfConfig) ->
-    gen_server:start(?MODULE, [#state{dev=Device}, IfConfig], []).
+attach(Interface) ->
+    {ok, Pid} = start_link(),
+    attach(Pid, Interface).
 
-event_manager(Interface) ->
-    gen_server:call(Interface, get_event_manager).
+attach(Dumper, Interface) ->
+    gen_server:call(Dumper, {sub, Interface}),
+    {ok, Dumper}.
 
-send(Interface, Data) ->
-    gen_server:cast(Interface, {send, Data}).
+eth_addr(Cache, IpAddr) ->
+    gen_server:call(Cache, {eth_addr, IpAddr}).
+
+ip_addr(Cache, EthAddr) ->
+    gen_server:call(Cache, {ip_addr, EthAddr}).
+
 
 %%====================================================================
 %% gen_server callbacks
@@ -59,10 +68,9 @@ send(Interface, Data) ->
 %% @doc Initialises the server's state
 %% @end
 %%--------------------------------------------------------------------
-init([S = #state{dev=Device}, IfConfig]) ->
-    Port = enet_tap:open(Device),
-    {ok, EvPid} = gen_event:start_link(),
-    {ok, S#state{port=Port, ev_pid=EvPid, osifconfig=IfConfig}}.
+init([]) ->
+    Tid = ets:new(?MODULE, []),
+    {ok, #state{tid=Tid}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -76,8 +84,10 @@ init([S = #state{dev=Device}, IfConfig]) ->
 %% @doc Call message handler callbacks
 %% @end
 %%--------------------------------------------------------------------
-handle_call(get_event_manager, _From, S = #state{ev_pid=Pid}) ->
-    {reply, Pid, S};
+
+handle_call({sub, Interface}, _From, State) ->
+    {reply, pubsub:sync_subscribe(Interface), State};
+
 handle_call(Call, _From, State) ->
     ?WARN("Unexpected call ~p.", [Call]),
     {noreply, State}.
@@ -91,19 +101,6 @@ handle_call(Call, _From, State) ->
 %% @doc Cast message handler callbacks
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({send, Data}, S = #state{port=P}) when is_port(P) ->
-    case Data of
-        Packet = #eth{} ->
-            Frame = enet_codec:encode(ethernet, Packet),
-            gen_event:notify(S#state.ev_pid, {out, Frame, Packet}),
-            port_command(P, Frame);
-        Frame when is_binary(Frame) ->
-            gen_event:notify(S#state.ev_pid, {out, Frame, raw}),
-            port_command(P, Frame);
-        BadPacket ->
-            ?WARN("Couldn't send bad packet: ~p", [BadPacket])
-    end,
-    {noreply, S};
 handle_cast(Msg, State) ->
     ?WARN("Unexpected cast ~p", [Msg]),
     {noreply, State}.
@@ -117,35 +114,25 @@ handle_cast(Msg, State) ->
 %% @doc Non gen-server message handler callbacks
 %% @end
 %%--------------------------------------------------------------------
-handle_info({Port, {exit_status, N}}, S = #state{port=Port}) ->
-    {stop, {interface_shutdown, N}, S = #state{port=undefined}};
-handle_info({Port, {data, PortPacket}}, S = #state{port=Port}) ->
-    case enet_tap:decode(PortPacket) of
-        running ->
-            #state{dev=Device, osifconfig=IfConfig} = S,
-            ?INFO("~p came up, configuring OS: ~s", [Device, IfConfig]),
-            ok = enet_tap:if_config(Device, IfConfig),
-            {noreply, S};
-        {frame, Frame} ->
-            handle_frame(Frame, S)
-    end;
+
+%% handle_info({enet, _IF, {tx, Frame}}, State) ->
+%%     P = enet_codec:decode(eth, Frame, [all]),
+%%     print([{dir, send}, {raw, Frame}, {packet, P}], State),
+%%     {noreply, State};
+%% handle_info({enet, _IF, {RX, Frame}}, State)
+%%   when RX =:= rx;
+%%        RX =:= promisc_rx ->
+%%     print([{dir, recv}, {raw, Frame}], State),
+%%     {noreply, State};
+handle_info({enet, IF, {RX, Frame, Pkt = #eth{type=arp}}}, State)
+  when RX =:= rx;
+       RX =:= promisc_rx ->
+    handle_arp_rx(IF, Pkt, State),
+    {noreply, State};
+
 handle_info(Info, State) ->
     ?WARN("Unexpected info ~p", [Info]),
     {noreply, State}.
-
-handle_frame(Frame, S = #state{}) ->
-    try enet_codec:decode(ethernet, Frame, [all]) of
-        {error, Reason} ->
-            ?WARN("Couldn't decode ethernet frame: ~p~nFrame: ~p",
-                  [Reason, Frame]);
-        Packet ->
-            gen_event:notify(S#state.ev_pid, {in, Frame, Packet})
-    catch
-        Class:Error ->
-            ?ERR("Couldn't decode ethernet frame: ~p:~p~nStack: ~p~nFrame: ~p",
-                  [Class, Error, erlang:get_stacktrace(), Frame])
-    end,
-    {noreply, S}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -156,9 +143,6 @@ handle_frame(Frame, S = #state{}) ->
 %% The return value is ignored.
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, S = #state{port=P}) when is_port(P) ->
-    enet_tap:close(P),
-    terminate(Reason, S#state{port=undefined});
 terminate(_Reason, _State) ->
     ok.
 
@@ -174,3 +158,42 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+handle_arp_rx(IF, #eth{type=arp,data=Pkt}, State) ->
+    try enet_codec:decode(arp, Pkt) of
+        {error, bad_packet} ->
+            %% XXX - log corrupt arp packet somehow?
+            ignore;
+        #arp{} = Q ->
+            handle_arp_rx(IF, Q, State)
+    catch
+        _Type:_Error ->
+            %% XXX - couldn't decode Pkt, Type:Error.
+            ignore
+    end;
+
+handle_arp_rx(IF,
+              Q = #arp{htype = ethernet,
+                       ptype = Type,
+                       op = request,
+                       sender = Sender = {SMac, SAddr},
+                       target = {TMac, TAddr}
+                      },
+              State) ->
+    case cache_lookup(TAddr, State) of
+        [] ->
+            ignore;
+        [?ARP_ENTRY(CMac, CAddr)] ->
+            R = #arp{op = reply,
+                     htype = ethernet,
+                     ptype = Type,
+                     sender = {CMac, CAddr},
+                     target = Sender
+                    },
+            Reply = #eth{dst=SMac, type=arp, data=enet_codec:encode(arp, R)},
+            enet_host:send(Reply)
+    end.
+
+
+cache_lookup(Key, #state{tid=T}) ->
+    ets:lookup(T, Key).

@@ -24,13 +24,13 @@
 %%====================================================================
 
 decode(<<Src:16/big, Dst:16/big,
-        Sequence:32/big, Ack:32/big,
+        Sequence:32/big, AckNo:32/big,
         DataOffset:4, Reserved:6,
         Urg:1, Ack:1, Psh:1, Rst:1, Syn:1, Fin:1,
         Window:16/big,
         Csum:16/big, UrgPointer:16/big,
         Data/binary>> = Pkt,
-       [IPH = #ipv4_pseudo_hdr{} | _DecodeOpts]) ->
+       [IPH = #ip_pseudo_hdr{} | _DecodeOpts]) ->
     HeaderLen = ?TCP_OPTS_ALIGNMENT*DataOffset,
     OptsLen = HeaderLen - ?TCP_HEADER_MIN_LEN,
     <<Options:OptsLen/binary,
@@ -38,7 +38,7 @@ decode(<<Src:16/big, Dst:16/big,
     #tcp{src_port=decode_port(Src)
          ,dst_port=decode_port(Dst)
          ,seq_no=Sequence
-         ,ack_no=Ack
+         ,ack_no=AckNo
          ,data_offset=DataOffset
          ,reserved=Reserved
          ,urg=decode_flag(Urg), ack=decode_flag(Ack), psh=decode_flag(Psh)
@@ -259,19 +259,38 @@ encode_option({timestamp, TSVal, TSReply}) ->
 
 check_sum(16#FFFF, _IPH, _Length, _Data) ->
     no_checksum;
-check_sum(Csum, #ipv4_pseudo_hdr{src=Src, dst=Dst, proto=Proto},
+check_sum(Csum, #ip_pseudo_hdr{src=Src, dst=Dst, proto=Proto},
           Length, Data)
   when is_integer(Csum), is_binary(Data), is_integer(Length),
-       is_binary(Src), is_binary(Dst), is_integer(Proto) ->
+       is_binary(Src), is_binary(Dst), is_integer(Proto),
+       byte_size(Src) =:= byte_size(Dst),
+       byte_size(Src) =:= 4 ->
     Pkt = <<Src:4/binary, Dst:4/binary, 0:8, Proto:8/big,
            Length:16/big, Data/binary>>,
+    enet_checksum:oc16_check(Pkt, Csum);
+check_sum(Csum, #ip_pseudo_hdr{src=Src, dst=Dst, proto=Proto},
+          Length, Data)
+  when is_integer(Csum), is_binary(Data), is_integer(Length),
+       is_binary(Src), is_binary(Dst), is_integer(Proto),
+       byte_size(Src) =:= byte_size(Dst),
+       byte_size(Src) =:= 16 ->
+    Pkt = <<Src:16/binary, Dst:16/binary, Length:16/big,
+            0:24, Proto:8/big, Data/binary>>,
     enet_checksum:oc16_check(Pkt, Csum).
 
-sum(Data, Length, [#ipv4_pseudo_hdr{src=Src, dst=Dst, proto=Proto}|_]) ->
+
+sum(Data, Length, [#ip_pseudo_hdr{src=Src, dst=Dst, proto=Proto}|_])
+  when byte_size(Src) =:= byte_size(Dst),
+       byte_size(Src) =:= 4 ->
     Pkt = <<Src:4/binary, Dst:4/binary, 0:8, Proto:8/big, Length:16/big,
             Data/binary>>,
+    enet_checksum:oc16_sum(Pkt);
+sum(Data, Length, [#ip_pseudo_hdr{src=Src, dst=Dst, proto=Proto}|_])
+  when byte_size(Src) =:= byte_size(Dst),
+       byte_size(Src) =:= 16 ->
+    Pkt = <<Src:16/binary, Dst:16/binary, Length:16/big,
+            0:24, Proto:8/big, Data/binary>>,
     enet_checksum:oc16_sum(Pkt).
-
 
 encode_pkt_test() ->
     ?assertMatch(B when is_binary(B),
@@ -288,4 +307,4 @@ encode_pkt_test() ->
                                         {timestamp,311329929,0},
                                         sack_ok],
                              data = <<>>},
-                        [{ipv4_pseudo_hdr,<<192,168,2,1>>,<<192,168,2,2>>,6}])).
+                        [{ip_pseudo_hdr,<<192,168,2,1>>,<<192,168,2,2>>,6}])).

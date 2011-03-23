@@ -25,7 +25,7 @@
 decode(<<Src:16/big, Dst:16/big,
         Length:16/big, Csum:16/big,
         Data/binary>> = Pkt,
-       [IPH = #ipv4_pseudo_hdr{} | DecodeOpts])
+       [IPH = #ip_pseudo_hdr{} | DecodeOpts])
   when byte_size(Data) =:= Length - ?UDP_HEADER_LEN ->
     Udp = #udp{src_port=decode_port(Src),
                dst_port=decode_port(Dst),
@@ -101,18 +101,39 @@ encode_port(Port) ->
 
 check_sum(16#FFFF, _IPH, _Length, _Data) ->
     no_checksum;
-check_sum(Csum, #ipv4_pseudo_hdr{src=Src, dst=Dst, proto=Proto},
+check_sum(Csum, #ip_pseudo_hdr{src=Src, dst=Dst, proto=Proto},
           Length, Data)
   when is_integer(Csum), is_binary(Data), is_integer(Length),
-       is_binary(Src), is_binary(Dst), is_integer(Proto) ->
+       is_binary(Src), is_binary(Dst), is_integer(Proto),
+       byte_size(Src) =:= byte_size(Dst),
+       byte_size(Src) =:= 4 ->
     Pkt = <<Src:4/binary, Dst:4/binary, 0:8, Proto:8/big, Length:16/big,
            Data/binary>>,
+    enet_checksum:oc16_check(Pkt, Csum);
+check_sum(Csum, #ip_pseudo_hdr{src=Src, dst=Dst, proto=Proto},
+          Length, Data)
+  when is_integer(Csum), is_binary(Data), is_integer(Length),
+       is_binary(Src), is_binary(Dst), is_integer(Proto),
+       byte_size(Src) =:= byte_size(Dst),
+       byte_size(Src) =:= 16 ->
+    Pkt = <<Src:16/binary, Dst:16/binary, Length:16/big,
+            0:24, Proto:8/big, Data/binary>>,
     enet_checksum:oc16_check(Pkt, Csum).
 
-sum(Data, Length, #ipv4_pseudo_hdr{src=Src, dst=Dst, proto=Proto}) ->
+sum(Data, Length, #ip_pseudo_hdr{src=Src, dst=Dst, proto=Proto})
+  when byte_size(Src) =:= byte_size(Dst),
+       byte_size(Src) =:= 4 ->
     Pkt = <<Src:4/binary, Dst:4/binary, 0:8, Proto:8/big, Length:16/big,
            Data/binary>>,
+    enet_checksum:oc16_sum(Pkt);
+sum(Data, Length, [#ip_pseudo_hdr{src=Src, dst=Dst, proto=Proto}|_])
+  when byte_size(Src) =:= byte_size(Dst),
+       byte_size(Src) =:= 16 ->
+    Pkt = <<Src:16/binary, Dst:16/binary, Length:16/big,
+            0:24, Proto:8/big, Data/binary>>,
     enet_checksum:oc16_sum(Pkt).
+
+
 
 %%====================================================================
 %% Internal functions

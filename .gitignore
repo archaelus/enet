@@ -5,3 +5,6 @@ priv/bin/*
 ebin/*.app
 c_src/*.o
 .eunit/*
+misc/*
+priv/breakage/*
+.#*

@@ -1,0 +1,8 @@
+{application, enet,
+ [{description, "Erlang Network Interface"}
+  ,{vsn, "0.2"}
+  ,{applications, [kernel, stdlib]}
+%  ,{mod, {enet_app, []}}
+  ,{env, []}
+  ,{registered, []}
+ ]}.

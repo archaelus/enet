@@ -23,25 +23,15 @@ module(eth) -> enet_eth;
 module(ethernet) -> enet_eth;
 module(arp) -> enet_arp;
 module(ipv4) -> enet_ipv4;
+module(ipv6) -> enet_ipv6;
 module(udp) -> enet_udp;
 module(dns) -> enet_dns;
 module(icmp) -> enet_icmp;
-module(tcp) -> enet_tcp.
+module(tcp) -> enet_tcp;
+module(null) -> enet_nullink.
 
 decode(Type, Data) ->
-    try
-        Mod = module(Type),
-        case Mod:decode(Data) of
-            {error, _} -> Data;
-            Decoded -> Decoded
-        end
-    catch
-        C:E ->
-            error_logger:error_msg("~p ~p:~p ~p",
-                                   [self(), C, E,
-                                    erlang:get_stacktrace()]),
-            Data
-    end.
+    decode(Type, Data, [Type]).
 
 decode(Type, Data, [all]) ->
     decode(Type, Data, [eth, ethernet, arp, ipv4, udp, dns, icmp, tcp]);
