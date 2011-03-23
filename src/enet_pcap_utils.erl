@@ -15,7 +15,7 @@
 tcp_packet_array(File) ->
     enet_pcap:file_foldl(File,
                          fun tcp_pa_fold/3,
-                         {array:new(), 1}).
+                         {array:new(), 0}).
 
 tcp_pa_fold(#pcap_hdr{datalinktype=Link},
             #pcap_pkt{ts={S,US},data=P},
@@ -30,7 +30,6 @@ tcp_flows(PacketArray) ->
                     PacketArray),
     dict:to_list(D).
 
-tcp_flow_fold(0, undefined, Acc) -> Acc;
 tcp_flow_fold(Idx,
               {_TS,
                #eth{data = #ipv4{src=S,
