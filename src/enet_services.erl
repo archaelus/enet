@@ -13,7 +13,11 @@
 %%====================================================================
 %% API
 %%====================================================================
+-type port_type() :: udp | tcp.
+-type port_no() :: non_neg_integer().
+-type port_value() :: binary() | port_no().
 
+-spec decode_port( port_type(), port_no() ) -> port_value().
 decode_port(udp, 1) -> <<"tcpmux">>;
 decode_port(udp, 2) -> <<"compressnet">>;
 decode_port(udp, 5) -> <<"rje">>;
@@ -9795,6 +9799,8 @@ decode_port(tcp, 48129) -> <<"blp5">>;
 decode_port(tcp, 48556) -> <<"com-bardac-dw">>;
 decode_port(_Proto, Port) when is_integer(Port) -> Port.
 
+-spec encode_port( port_type(), port_value()) ->
+                         port_no().
 encode_port(udp, <<"tcpmux">>) -> 1;
 encode_port(udp, <<"compressnet">>) -> 2;
 encode_port(udp, <<"rje">>) -> 5;
