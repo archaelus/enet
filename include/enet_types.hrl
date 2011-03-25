@@ -52,7 +52,7 @@
                ,data :: term()
               }).
 
--type port_no() :: 0..65535.
+-type port_no() :: 0..65535 | binary().
 
 -record(udp, {src_port :: port_no()
               ,dst_port :: port_no()
@@ -61,7 +61,7 @@
               ,data :: term()
              }).
 
--type icmp_type() :: atom() | non_neg_integer().
+-type icmp_type() :: atom() | {Type::non_neg_integer(), Code::non_neg_integer()}.
 
 -record(icmp, {type :: icmp_type()
                ,csum :: checksum()
