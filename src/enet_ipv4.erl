@@ -55,7 +55,7 @@ decode(_Dgram, _) ->
     {error, bad_packet}.
 
 pseudo_hdr(#ipv4{src=SrcIP,dst=DestIP,proto=Proto}) ->
-    #ipv4_pseudo_hdr{src=SrcIP, dst=DestIP, proto=Proto}.
+    #ip_pseudo_hdr{src=SrcIP, dst=DestIP, proto=Proto}.
 
 expand(Pkt = #ipv4{options=Opts}) when is_list(Opts) ->
     expand(Pkt#ipv4{options=encode_options(Opts)});
