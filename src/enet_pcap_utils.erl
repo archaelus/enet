@@ -9,8 +9,22 @@
 
 -export([tcp_packet_array/1
          ,tcp_flows/1
-         ,tcp_establishment_times/1         
+         ,tcp_flow_parts/3
+         ,tcp_flow/1
+         ,tcp_establishment_times/1
         ]).
+
+-export([read_tcp_stream/2,
+         read_tcp_streams/1]).
+
+read_tcp_streams(File) ->
+    {PacketArray, _Count} = tcp_packet_array(File),
+    Flows = tcp_flows(PacketArray),
+    [begin
+         {A,B} = tcp_flow_parts2(Flow, Idxs, PacketArray),
+         {{element(1, A), read_tcp_stream(A, PacketArray)},
+          {element(1, B), read_tcp_stream(B, PacketArray)}}
+     end || {Flow, Idxs} <- Flows ].
 
 tcp_packet_array(File) ->
     enet_pcap:file_foldl(File,
@@ -20,29 +34,68 @@ tcp_packet_array(File) ->
 tcp_pa_fold(#pcap_hdr{datalinktype=Link},
             #pcap_pkt{ts={S,US},data=P},
             {Array,Cnt}) ->
-    Pkt = enet_codec:decode(Link, P, [ethernet, ipv4, tcp]),
+    Pkt = enet_codec:decode(Link, P, [null, ethernet, ipv4, ipv6, tcp]),
     TS = (S * 1000000) + US,
     {array:set(Cnt, {TS, Pkt}, Array), Cnt + 1}.
 
+%% Classifies based on src and dst hosts and ports only. Assumes that
+%% a flow isn't re-used within a capture.
 tcp_flows(PacketArray) ->
     D = array:foldl(fun tcp_flow_fold/3,
                     dict:new(),
                     PacketArray),
     dict:to_list(D).
 
-tcp_flow_fold(Idx,
-              {_TS,
-               #eth{data = #ipv4{src=S,
-                                 dst=D,
-                                 proto=tcp,
-                                 data=#tcp{src_port=Sp,
-                                           dst_port=Dp}}}},
-               FlowD) ->
-    Src = {S,Sp},
-    Dst = {D,Dp},
-    Flow = {erlang:min(Src,Dst),
-            erlang:max(Src,Dst)},
-    dict:append(Flow, Idx, FlowD).
+tcp_flow_parts(Flow = {A,B}, Flows, PacketArray) ->
+    Idxs = proplists:get_value(Flow, Flows),
+    tcp_flow_parts2(Flow, Idxs, PacketArray).
+
+tcp_flow_parts2(Flow = {A,B}, Idxs, PacketArray) ->
+    { {{A,B},
+       [ I || I <- Idxs,
+              tcp_flow(element(2, array:get(I, PacketArray))) =:= {A,B} ]},
+      {{B, A},
+       [ I || I <- Idxs,
+              tcp_flow(element(2, array:get(I, PacketArray))) =:= {B,A} ]}
+    }.
+
+tcp_flow(#null{type = T, data = Pkt}) when T =:= ipv4;
+                                           T =:= ipv6 ->
+    tcp_flow(Pkt);
+tcp_flow(#eth{type = T, data = Pkt}) when T =:= ipv4;
+                                          T =:= ipv6 ->
+    tcp_flow(Pkt);
+tcp_flow(#ipv4{src=S,
+               dst=D,
+               proto=tcp,
+               data=#tcp{src_port=Sp,
+                         dst_port=Dp}}) ->
+    tcp_flow(S, Sp, D, Dp);
+tcp_flow(#ipv6{src=S,
+               dst=D,
+               payload=Payload}) ->
+    case lists:keyfind(tcp, 1, Payload) of
+        #tcp{src_port=Sp,
+             dst_port=Dp} ->
+            tcp_flow(S, Sp, D, Dp);
+        _ -> not_tcp
+    end;
+tcp_flow(_) -> not_tcp.
+    
+tcp_flow(Srcaddr, Srcport, Dstaddr, Dstport) ->
+    Src = {Srcaddr, Srcport},
+    Dst = {Dstaddr, Dstport},
+    {Src, Dst}.
+
+tcp_flow_sort(Data) ->
+    {A,B} = tcp_flow(Data),
+    {erlang:min(A, B), erlang:max(A, B)}.
+
+tcp_flow_fold(Idx, {_TS,Pkt}, FlowD) ->
+    case tcp_flow_sort(Pkt) of
+        not_tcp -> FlowD;
+        Flow -> dict:append(Flow, Idx, FlowD)
+    end.
 
 tcp_establishment_times(File) ->
     {PacketArray,_Count} = tcp_packet_array(File),
@@ -53,3 +106,49 @@ tcp_establishment_times(File) ->
               end
               || {Flow, [A, B]} <- tcp_flows(PacketArray)],
     lists:reverse(lists:keysort(2, Times)).
+
+read_tcp_stream({{Src, Dst}, [P0Idx | Idxs]}, PacketArray) ->
+    {TS, P0} = array:get(P0Idx, PacketArray),
+    S0 = rts_init(Src, Dst, TS, P0),
+    lists:foldl(fun (Idx, State) ->
+                        {_TSi, Pi} = array:get(Idx, PacketArray),
+                        rts_update(Pi, State)
+                end,
+                S0,
+                Idxs).
+
+-record(tcp_stream, {flow, start_time, isn, data = []}).
+rts_init(S, D, TS, P0) ->
+    case enet_codec:extract(tcp, P0) of
+        #tcp{syn=true, seq_no=ISN, data= <<>>} ->
+            #tcp_stream{flow={S,D}, isn=ISN, start_time=TS,
+                        data = []};
+        Tcp ->
+            erlang:error({syn_not_set, Tcp})
+    end.
+
+rts_update(P, S0 = #tcp_stream{isn=ISN, data=Acc}) ->
+    case enet_codec:extract(tcp, P) of
+        #tcp{seq_no = S, data = Data} = Pkt ->
+            RelativeSN = S - ISN,
+            S1 = S0#tcp_stream{data = [{RelativeSN, Data} | Acc]},
+            case Pkt#tcp.fin orelse Pkt#tcp.rst of
+                true ->
+                    rts_finish(S1);
+                false ->
+                    S1
+            end
+    end;
+rts_update(_, Acc) -> Acc.
+
+
+rts_finish(#tcp_stream{start_time = TS,
+                       data = Data}) ->
+    [{1, D0} | OrdData] = lists:reverse(Data),
+    {TS,
+     lists:foldl(fun ({_, <<>>}, Bin) -> Bin;
+                     ({Offset, D}, Bin) ->
+                         <<Bin:(Offset - 1)/binary, D/binary>>
+                 end,
+                 D0,
+                 OrdData)}.
