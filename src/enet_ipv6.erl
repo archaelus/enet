@@ -78,7 +78,7 @@ decode_payload(Code, Data, Acc, Options) ->
             decode_payload(NextHdr, Remaining, Acc ++ [Extension], Options)
     end.
 
-decode_header(ipv6_frag, <<Offset:13, Res:2, M:1, ID:32/big>>) ->
+decode_header(ipv6_frag, <<Offset:13, _Res:2, M:1, ID:32/big>>) ->
     #ipv6_frag{offset=Offset,m=M,id=ID};
 decode_header(ipv6_route, <<Type:8, SegmentsLeft:8, _:32, Addresses/binary>>) ->
     #ipv6_route{type=Type, segments=SegmentsLeft, addresses=Addresses};
