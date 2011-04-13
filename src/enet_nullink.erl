@@ -10,6 +10,8 @@
          decode_type/2, encode_type/2
          ]).
 
+-export([payload/1, payload_type/1]).
+
 -include("enet_types.hrl").
 
 %%====================================================================
@@ -33,6 +35,10 @@ encode(#null{type=LinkType, data=Data}, Options) when is_binary(Data) ->
 
 encode(LinkType, Data, darwin, little) ->
     << LinkType:32/little, Data/binary>>.
+
+
+payload_type(#null{type=T}) -> T.
+payload(#null{data=D}) -> D.
 
 %%====================================================================
 %% Internal functions

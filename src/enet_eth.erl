@@ -13,6 +13,8 @@
          decode_addr/1, encode_addr/1,
          addr_len/0]).
 
+-export([payload/1, payload_type/1]).
+
 -include("enet_types.hrl").
 
 %%====================================================================
@@ -46,6 +48,9 @@ encode(#eth{src=Src,dst=Dest,type=Type,data=Data})
      Data/binary>>.
 % IOList form.
 %    [ Src, Dest, << encode_type(Type):16/big>>, Data ].
+
+payload_type(#eth{type=T}) -> T.
+payload(#eth{data=D}) -> D.
 
 %%====================================================================
 %% Internal functions

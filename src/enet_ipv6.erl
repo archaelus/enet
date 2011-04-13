@@ -12,6 +12,8 @@
          decode_addr/1, encode_addr/1,
          addr_len/0]).
 
+-export([payload/1, payload_type/1]).
+
 -include("enet_types.hrl").
 
 %%====================================================================
@@ -36,6 +38,9 @@ decode(<<6:4, % version
           payload=decode_payload(NextHdr, Payload, [], [PseudoHdr | Options])};
 decode(_Frame, _) ->
     {error, bad_packet}.
+
+payload_type(#ipv6{next_hdr=P}) -> P.
+payload(#ipv6{payload=D}) -> D.
 
 
 %%====================================================================

@@ -18,6 +18,8 @@
          ,addr_to_list/1, list_to_addr/1
         ]).
 
+-export([payload/1, payload_type/1]).
+
 -include("enet_types.hrl").
 -define(IP_VERSION, 4).
 -define(IP_MIN_HDR_LEN, 5).
@@ -541,6 +543,10 @@ encode_protocol(pipe)          -> 131;
 encode_protocol(sctp)          -> 132;
 encode_protocol(fc)            -> 133;
 encode_protocol(divert)        -> 254.
+
+payload_type(#ipv4{proto=P}) -> P.
+payload(#ipv4{data=D}) -> D.
+
 
 %%====================================================================
 %% Internal functions
