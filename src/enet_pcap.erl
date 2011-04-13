@@ -6,7 +6,7 @@
 -module(enet_pcap).
 
 -include_lib("kernel/include/file.hrl").
--include("enet_pcap.hrl"). 
+-include("enet_pcap.hrl").
 
 -export([foreach_file_packets/2
          ,read_file/1
