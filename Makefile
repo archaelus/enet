@@ -41,4 +41,4 @@ priv/bin:
 $(TAP_DRIVER): priv/bin
 
 $(TAP_DRIVER): c_src/enet_tap.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -Wall $< -levent -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) -g -Wall $< -levent -o $@
