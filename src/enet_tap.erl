@@ -40,8 +40,12 @@ args(Device) when is_list(Device) ->
         {unix, darwin} ->
             " -f /dev/" ++ Device;
         {unix, linux} ->
-            " -i " ++ Device
+            " -i " ++ Device ++ " -b " ++ mtu(Device)
     end.
+
+mtu(Device) ->
+    {ok, Devopt} = inet:ifget(Device, [mtu]),
+    integer_to_list(proplists:get_value(mtu, Devopt)).
 
 env() ->
     case os:type() of
