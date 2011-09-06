@@ -91,7 +91,7 @@ foreach_file_packets(Header, File, Fun) ->
             foreach_file_packets(Header, File, Fun)
     end.
 
-read_one_packet(#pcap_hdr{endianess=little}, File) ->
+read_one_packet(#pcap_hdr{endianness=little}, File) ->
     case file:read(File, ?PCAP_PKTHDR_SIZE) of
         eof -> eof;
         {ok, <<TS_Secs:32/little,
@@ -180,7 +180,7 @@ decode_header(<<16#d4,16#c3,16#b2,16#a1,
                sigfigures=SigFigures,
                snaplen=SnapLen,
                datalinktype=decode_linktype(DataLinkType),
-               endianess=little},
+               endianness=little},
      Rest};
 decode_header(<<16#a1,16#b2,16#c3,16#d4,
               VersionMajor:16/big,
@@ -195,7 +195,7 @@ decode_header(<<16#a1,16#b2,16#c3,16#d4,
                sigfigures=SigFigures,
                snaplen=SnapLen,
                datalinktype=decode_linktype(DataLinkType),
-               endianess=big},
+               endianness=big},
      Rest}.
 
 default_header() ->
@@ -204,14 +204,14 @@ default_header() ->
               sigfigures=0,
               snaplen=65535,
               datalinktype=1,
-              endianess=little}.
+              endianness=little}.
 
 encode_header(#pcap_hdr{version={VersionMajor, VersionMinor},
                         tz_correction=TzCorrection,
                         sigfigures=SigFigures,
                         snaplen=SnapLen,
                         datalinktype=DataLinkType,
-                        endianess=little}) ->
+                        endianness=little}) ->
     <<16#d4,16#c3,16#b2,16#a1,
      VersionMajor:16/little,
      VersionMinor:16/little,
@@ -224,7 +224,7 @@ encode_header(#pcap_hdr{version={VersionMajor, VersionMinor},
                         sigfigures=SigFigures,
                         snaplen=SnapLen,
                         datalinktype=DataLinkType,
-                        endianess=big}) ->
+                        endianness=big}) ->
     <<16#a1,16#b2,16#c3,16#d4,
      VersionMajor:16/big,
      VersionMinor:16/big,
@@ -238,11 +238,9 @@ encode_header(#pcap_hdr{version={VersionMajor, VersionMinor},
 %% PCAP packet parser/generator
 %%====================================================================
 
-decode_packet({#pcap_hdr{endianess=Endianess}, Data}) ->
-    decode_packet(Endianess, Data).
+decode_packet({#pcap_hdr{endianness=Endianness}, Data}) ->
+    decode_packet(Endianness, Data).
 
-decode_packet(#pcap_hdr{endianess=Endianess}, Data) ->
-    decode_packet(Endianess, Data);
 decode_packet(little,
               <<TS_Secs:32/little,
                 TS_USecs:32/little,
@@ -262,12 +260,7 @@ decode_packet(big,
     Pcap = #pcap_pkt{ts={TS_Secs,TS_USecs},orig_len=OrigLen},
     {Pcap,Data,RestPacket}.
 
-generate_pcap_packet_header(TS_Secs,TS_USecs,OrigLen,Data) ->
-    encode_packet(little,
-                  #pcap_pkt{ts={TS_Secs,TS_USecs},
-                            orig_len=OrigLen,
-                            data=Data}).
-encode_packet(#pcap_hdr{endianess=End}, #pcap_pkt{} = P) ->
+encode_packet(#pcap_hdr{endianness=End}, #pcap_pkt{} = P) ->
     encode_packet(End, P);
 encode_packet(little, #pcap_pkt{ts={TS_Secs,TS_USecs},
                                 orig_len=OrigLen,
