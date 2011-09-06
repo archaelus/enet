@@ -6,8 +6,9 @@
                    ,sigfigures
                    ,snaplen
                    ,datalinktype
-                   ,endianess
+                   ,endianness :: 'little' | 'big'
                   }).
--record(pcap_pkt, {ts,
-                   orig_len,
-                   data}).
+-record(pcap_pkt, {ts :: {S::non_neg_integer(),
+                          US::non_neg_integer()},
+                   orig_len :: non_neg_integer(),
+                   data :: binary()}).
