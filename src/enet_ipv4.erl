@@ -135,7 +135,9 @@ encode(Pkt) ->
 
 addr_len() -> 4.
 
+decode_addr(<<127,0,0,1>>) -> localhost;
 decode_addr(B) when is_binary(B) -> B.
+encode_addr(localhost) -> <<127,0,0,1>>;
 encode_addr(B) when is_binary(B) -> B.
 
 addr_to_list(B) when is_binary(B) ->
