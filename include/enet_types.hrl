@@ -54,6 +54,7 @@
               }).
 
 -type port_no() :: 0..65535 | binary().
+-type netport() :: list() | port_no().
 
 -record(udp, {src_port :: port_no()
               ,dst_port :: port_no()
