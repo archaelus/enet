@@ -12,7 +12,8 @@
              }).
 
 -type ip_proto() :: atom() | 0..255.
--type ipv4_address() :: list() | << _:32 >>.
+-type ip_address() :: ipv4_address() | ipv6_addr().
+-type ipv4_address() :: string() | << _:32 >> | 'localhost'.
 -type arp_op() :: 'request' | 'reply' | 0..65535.
 -type l3_proto() :: atom() | 0..65535.
 
