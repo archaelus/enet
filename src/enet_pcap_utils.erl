@@ -68,10 +68,10 @@ tcp_flows(PacketArray) ->
 tcp_flow_parts({A,B}, Idxs, PacketArray) ->
     { {{A,B},
        [ I || I <- Idxs,
-              tcp_flow(element(2, array:get(I, PacketArray))) =:= {A,B} ]},
+              tcp_flow(packet(I, PacketArray)) =:= {A,B} ]},
       {{B, A},
        [ I || I <- Idxs,
-              tcp_flow(element(2, array:get(I, PacketArray))) =:= {B,A} ]}
+              tcp_flow(packet(I, PacketArray)) =:= {B,A} ]}
     }.
 
 -spec tcp_flow(packet()) -> tcp_flow() | 'not_tcp'.
@@ -122,8 +122,8 @@ tcp_flow_fold(Idx, {_TS,Pkt}, FlowD) ->
 tcp_establishment_times(File) ->
     {PacketArray,_Count} = tcp_packet_array(File),
     Times = [ begin
-                  {Atime,_} = array:get(A, PacketArray),
-                  {Btime,_} = array:get(B, PacketArray),
+                  Atime = timestamp(A, PacketArray),
+                  Btime = timestamp(B, PacketArray),
                   {Flow, erlang:abs(Atime - Btime)}
               end
               || {Flow, [A, B]} <- tcp_flows(PacketArray)],
@@ -140,8 +140,7 @@ read_tcp_stream({{Src, Dst}, [P0Idx | Idxs]}, PacketArray) ->
     {TS, P0} = array:get(P0Idx, PacketArray),
     S0 = rts_init(Src, Dst, TS, P0),
     lists:foldl(fun (Idx, State) ->
-                        {_TSi, Pi} = array:get(Idx, PacketArray),
-                        rts_update(Pi, State)
+                        rts_update(packet(Idx, PacketArray), State)
                 end,
                 S0,
                 Idxs).
@@ -181,3 +180,15 @@ rts_finish(#tcp_stream{start_time = TS,
                  end,
                  D0,
                  OrdData)}.
+
+-spec packet(Idx::non_neg_integer(),
+             Array::packet_array()) -> Packet::term().
+packet(Idx, Array) ->
+    {_TS, Pkt} = array:get(Idx, Array),
+    Pkt.
+
+-spec timestamp(Idx::non_neg_integer(),
+                Array::packet_array()) -> Timestamp::non_neg_integer().
+timestamp(Idx, Array) ->
+    {TS, _Pkt} = array:get(Idx, Array),
+    TS.
