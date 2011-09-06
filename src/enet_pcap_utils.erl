@@ -18,19 +18,20 @@
          read_tcp_streams/1]).
 
 -type packet() :: #null{} | #eth{} | #ipv4{} | #ipv6{} | #tcp{}.
--type tcp_flow() :: {{Src::ip_address(), SrcPort::port_no()},
-                     {Dst::ip_address(), DstPort::port_no()}}.
--type tcp_flows() :: [tcp_flow()].
+-type host_port() :: {ip_address() | undefined, netport() | undefined}.
+-type tcp_flow() :: {Src::host_port(), Dst::host_port()}.
+-type tcp_stream() :: {{Forward::host_port(), [PacketIdx::non_neg_integer()]},
+                       {Reverse::host_port(), [PacketIdx::non_neg_integer()]}}.
 
--spec read_tcp_streams(FileName::string()) -> tcp_flows().
+-spec read_tcp_streams(FileName::string()) -> [tcp_stream()].
 read_tcp_streams(File) ->
     {PacketArray, _Count} = tcp_packet_array(File),
-    Flows = tcp_flows(PacketArray),
     [begin
-         {A,B} = tcp_flow_parts2(Flow, Idxs, PacketArray),
-         {{element(1, A), read_tcp_stream(A, PacketArray)},
-          {element(1, B), read_tcp_stream(B, PacketArray)}}
-     end || {Flow, Idxs} <- Flows ].
+         {A = {Af,_}, B = {Bf,_}} = tcp_flow_parts(Flow, Idxs, PacketArray),
+         {{Af, read_tcp_stream(A, PacketArray)},
+          {Bf, read_tcp_stream(B, PacketArray)}}
+     end
+     || {Flow, Idxs} <- tcp_flows(PacketArray) ].
 
 %%-type timestamp() :: non_neg_integer(). % Microseconds.
 -type packet_array() :: array(). % array:array({timestamp(), packet()})
@@ -45,31 +46,26 @@ tcp_pa_fold(#pcap_hdr{datalinktype=Link,
                       endianness=Endian},
             #pcap_pkt{ts={S,US},data=P},
             {Array,Cnt}) ->
-    Pkt = enet_codec:decode(Link, P, [null, {endianness, Endian},
+    Pkt = enet_codec:decode(Link, P, [Link, {endianness, Endian},
                                       ethernet, ipv4, ipv6, tcp]),
     TS = (S * 1000000) + US,
     {array:set(Cnt, {TS, Pkt}, Array), Cnt + 1}.
 
 %% Classifies based on src and dst hosts and ports only. Assumes that
 %% a flow isn't re-used within a capture.
--spec tcp_flows(packet_array()) -> [{tcp_flow(), [packet()]}].
+-spec tcp_flows(packet_array()) -> [{tcp_flow(), [Idx::non_neg_integer()]}].
 tcp_flows(PacketArray) ->
     D = array:foldl(fun tcp_flow_fold/3,
                     dict:new(),
                     PacketArray),
     dict:to_list(D).
 
--type host_port() :: {ip_address() | undefined, netport() | undefined}.
 -type tcp_flow_part() :: { {Src::host_port(), Dst::host_port()},
                            [packet() | 'not_tcp'] }.
--spec tcp_flow_parts(tcp_flow(), tcp_flows(), packet_array()) ->
-                            { Forward::tcp_flow_part(),
-                              Reverse::tcp_flow_part() }.
-tcp_flow_parts(Flow = {_A,_B}, Flows, PacketArray) ->
-    Idxs = proplists:get_value(Flow, Flows),
-    tcp_flow_parts2(Flow, Idxs, PacketArray).
-
-tcp_flow_parts2({A,B}, Idxs, PacketArray) ->
+-spec tcp_flow_parts({Forward::tcp_flow(),Reverse::tcp_flow()},
+                     [Idx::non_neg_integer()],
+                     packet_array()) -> tcp_stream().
+tcp_flow_parts({A,B}, Idxs, PacketArray) ->
     { {{A,B},
        [ I || I <- Idxs,
               tcp_flow(element(2, array:get(I, PacketArray))) =:= {A,B} ]},
@@ -133,6 +129,13 @@ tcp_establishment_times(File) ->
               || {Flow, [A, B]} <- tcp_flows(PacketArray)],
     lists:reverse(lists:keysort(2, Times)).
 
+%% =====================
+%% TCP Stream Reassembly
+%% =====================
+
+-spec read_tcp_stream({host_port(), [Idx::non_neg_integer()]},
+                      packet_array()) ->
+                             {StartTS::non_neg_integer(), Stream::binary()}.
 read_tcp_stream({{Src, Dst}, [P0Idx | Idxs]}, PacketArray) ->
     {TS, P0} = array:get(P0Idx, PacketArray),
     S0 = rts_init(Src, Dst, TS, P0),
