@@ -20,8 +20,10 @@
 -type packet() :: #null{} | #eth{} | #ipv4{} | #ipv6{} | #tcp{}.
 -type host_port() :: {ip_address() | undefined, netport() | undefined}.
 -type tcp_flow() :: {Src::host_port(), Dst::host_port()}.
--type tcp_stream() :: {{Forward::host_port(), [PacketIdx::non_neg_integer()]},
-                       {Reverse::host_port(), [PacketIdx::non_neg_integer()]}}.
+-type tcp_flow_part() :: { {Src::host_port(), Dst::host_port()},
+                           [packet() | 'not_tcp'] }.
+-type tcp_stream() :: {Forward::tcp_flow_part(),
+                       Reverse::tcp_flow_part()}.
 
 -spec read_tcp_streams(FileName::string()) -> [tcp_stream()].
 read_tcp_streams(File) ->
@@ -60,8 +62,6 @@ tcp_flows(PacketArray) ->
                     PacketArray),
     dict:to_list(D).
 
--type tcp_flow_part() :: { {Src::host_port(), Dst::host_port()},
-                           [packet() | 'not_tcp'] }.
 -spec tcp_flow_parts({Forward::tcp_flow(),Reverse::tcp_flow()},
                      [Idx::non_neg_integer()],
                      packet_array()) -> tcp_stream().
