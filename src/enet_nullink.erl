@@ -51,6 +51,3 @@ decode_type(darwin, N) -> N.
 encode_type(darwin, ipv4) -> 2;
 encode_type(darwin, ipv6) -> 30;
 encode_type(darwin, N) -> N.
-
-
-
