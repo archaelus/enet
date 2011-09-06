@@ -83,10 +83,7 @@ encode(#tcp{src_port=Src
        is_binary(TcpData) ->
     OptSize = byte_size(Options),
     PadLen = ?TCP_OPTS_ALIGNMENT - ((?TCP_HEADER_MIN_LEN + OptSize) rem ?TCP_OPTS_ALIGNMENT),
-    Padding = case PadLen of
-                  0 -> <<>>;
-                  _N -> <<0:(PadLen*8)>>
-              end,
+    Padding = <<0:(PadLen*8)>>,
     MyDataOffset = (?TCP_HEADER_MIN_LEN + OptSize + PadLen) div ?TCP_OPTS_ALIGNMENT,
     DataOffset = MyDataOffset,
     <<Src:2/binary, Dst:2/binary,
