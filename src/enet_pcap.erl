@@ -22,6 +22,11 @@
          ,append_to_file/2
         ]).
 
+-export([ ts_to_datetime/1
+         ,ts_to_localtime/1
+         ,ts_to_now/1
+        ]).
+
 %% Example:
 %% enet_pcap:foreach_file_packets("misc/http_txn.pcap",
 %%                                fun (#pcap_hdr{datalinktype=T},
@@ -158,8 +163,6 @@ now_to_ts({Mega, Secs, Micros}) ->
     {Mega * 1000000 + Secs,
      Micros}.
 
-unix_ts_to_datetime(Ts) when is_list(Ts) ->
-    unix_ts_to_datetime(list_to_integer(Ts));
 unix_ts_to_datetime(Ts) when is_integer(Ts) ->
     Ts1970 = calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}),
     calendar:gregorian_seconds_to_datetime(Ts1970 + Ts).
