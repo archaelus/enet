@@ -87,5 +87,4 @@ decode_type({0, 0}) -> echo_reply;
 decode_type({Type, Code}) -> {Type, Code}.
 
 encode_type(echo_request) -> {8, 0};
-encode_type(echo_reply) -> {0, 0};
-encode_type({Type, Code}) -> {Type, Code}.
+encode_type(echo_reply) -> {0, 0}.
