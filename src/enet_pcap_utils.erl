@@ -68,6 +68,20 @@ tcp_flows(PacketArray) ->
                     PacketArray),
     dict:to_list(D).
 
+tcp_flow_fold(Idx, {_TS,Pkt}, FlowD) ->
+    case tcp_flow_sort(Pkt) of
+        not_tcp -> FlowD;
+        Flow -> dict:append(Flow, Idx, FlowD)
+    end.
+
+-spec tcp_flow_sort(Pkt::term()) -> tcp_flow() | 'not_tcp'.
+tcp_flow_sort(Pkt) ->
+    case tcp_flow(Pkt) of
+        not_tcp -> not_tcp;
+        {A,B} ->
+            {erlang:min(A, B), erlang:max(A, B)}
+    end.
+
 -spec tcp_flow_parts({Forward::tcp_flow(),Reverse::tcp_flow()},
                      [Idx::non_neg_integer()],
                      packet_array()) -> tcp_stream_idxs().
@@ -111,19 +125,6 @@ tcp_flow(Srcaddr, Srcport, Dstaddr, Dstport) ->
     Src = {Srcaddr, Srcport},
     Dst = {Dstaddr, Dstport},
     {Src, Dst}.
-
-tcp_flow_sort(Data) ->
-    case tcp_flow(Data) of
-        not_tcp -> not_tcp;
-        {A,B} ->
-            {erlang:min(A, B), erlang:max(A, B)}
-    end.
-
-tcp_flow_fold(Idx, {_TS,Pkt}, FlowD) ->
-    case tcp_flow_sort(Pkt) of
-        not_tcp -> FlowD;
-        Flow -> dict:append(Flow, Idx, FlowD)
-    end.
 
 tcp_establishment_times(File) ->
     {PacketArray,_Count} = tcp_packet_array(File),
