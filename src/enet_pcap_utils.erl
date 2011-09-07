@@ -34,12 +34,14 @@
 -spec read_tcp_streams(FileName::string()) -> [tcp_stream()].
 read_tcp_streams(File) ->
     {PacketArray, _Count} = tcp_packet_array(File),
+    FlowIdxs = tcp_flows(PacketArray),
     [begin
-         {A = {Af,_}, B = {Bf,_}} = tcp_flow_parts(Flow, Idxs, PacketArray),
+         {A = {Af,_AIdxs}, B = {Bf,_BIdxs}} =
+             tcp_flow_parts(Flow, Idxs, PacketArray),
          {{Af, read_tcp_stream(A, PacketArray)},
           {Bf, read_tcp_stream(B, PacketArray)}}
      end
-     || {Flow, Idxs} <- tcp_flows(PacketArray) ].
+     || {Flow, Idxs} <- FlowIdxs ].
 
 -spec tcp_packet_array(File::string()) -> {packet_array(),
                                            Count::non_neg_integer()}.
