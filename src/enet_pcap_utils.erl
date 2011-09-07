@@ -86,7 +86,7 @@ tcp_flow_sort(Pkt) ->
                      [Idx::non_neg_integer()],
                      packet_array()) -> tcp_stream_idxs().
 tcp_flow_parts({A,B}, Idxs, PacketArray) ->
-    { {{A,B},
+    { {{A, B},
        [ I || I <- Idxs,
               tcp_flow(packet(I, PacketArray)) =:= {A,B} ]},
       {{B, A},
