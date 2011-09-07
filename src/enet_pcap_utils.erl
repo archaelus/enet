@@ -126,6 +126,9 @@ tcp_flow(Srcaddr, Srcport, Dstaddr, Dstport) ->
     Dst = {Dstaddr, Dstport},
     {Src, Dst}.
 
+%% Time delta between first two packets of various TCP flows. Should
+%% usually be correct unless the initial syn from A->B is
+%% retransmitted.
 tcp_establishment_times(File) ->
     {PacketArray,_Count} = tcp_packet_array(File),
     Times = [ begin
@@ -133,7 +136,7 @@ tcp_establishment_times(File) ->
                   Btime = timestamp(B, PacketArray),
                   {Flow, erlang:abs(Atime - Btime)}
               end
-              || {Flow, [A, B]} <- tcp_flows(PacketArray)],
+              || {Flow, [A, B | _]} <- tcp_flows(PacketArray)],
     lists:reverse(lists:keysort(2, Times)).
 
 %% =====================
