@@ -166,16 +166,14 @@ rts_init(S, D, TS, P0) ->
     end.
 
 rts_update(P, S0 = #tcp_stream{isn=ISN, data=Acc}) ->
-    case enet_codec:extract(tcp, P) of
-        #tcp{seq_no = S, data = Data} = Pkt ->
-            RelativeSN = S - ISN,
-            S1 = S0#tcp_stream{data = [{RelativeSN, Data} | Acc]},
-            case Pkt#tcp.fin orelse Pkt#tcp.rst of
-                true ->
-                    rts_finish(S1);
-                false ->
-                    S1
-            end
+    #tcp{seq_no = S, data = Data} = Pkt = enet_codec:extract(tcp, P),
+    RelativeSN = S - ISN,
+    S1 = S0#tcp_stream{data = [{RelativeSN, Data} | Acc]},
+    case Pkt#tcp.fin orelse Pkt#tcp.rst of
+        true ->
+            rts_finish(S1);
+        false ->
+            S1
     end;
 rts_update(_, Acc) -> Acc.
 
