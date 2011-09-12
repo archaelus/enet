@@ -28,6 +28,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -opaque pubsub() :: #pubsub{}.
+-export_type([pubsub/0]).
 
 %%====================================================================
 %% API
