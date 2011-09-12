@@ -6,11 +6,14 @@
 -module(enet_nullink).
 
 %% API
--export([decode/2, encode/2,
-         decode_type/2, encode_type/2
-         ]).
+-behavior(enet_codec).
+-export([decode/2
+         ,payload/2
+         ,payload_type/2
+         ,encode/2
+         ,default_options/0
+        ]).
 
--export([payload/1, payload_type/1]).
 
 -include("enet_types.hrl").
 
@@ -38,8 +41,10 @@ encode(LinkType, Data, darwin, little) when is_integer(LinkType),
     << LinkType:32/little, Data/binary>>.
 
 
-payload_type(#null{type=T}) -> T.
-payload(#null{data=D}) -> D.
+payload_type(#null{type=T}, _) -> T.
+payload(#null{data=D}, _) -> D.
+
+default_options() -> [].
 
 %%====================================================================
 %% Internal functions
