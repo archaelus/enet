@@ -31,9 +31,10 @@ decode(<<Type:32/little, Data/binary>>, OS = darwin, little, Options) ->
 encode(#null{type=LinkType, data=Data}, Options) when is_binary(Data) ->
     {OS,End} = {proplists:get_value(os, Options, darwin),
                 proplists:get_value(endianness, Options, little)},
-    encode(LinkType, Data, OS, End).
+    encode(encode_type(OS, LinkType), Data, OS, End).
 
-encode(LinkType, Data, darwin, little) ->
+encode(LinkType, Data, darwin, little) when is_integer(LinkType),
+                                            is_binary(Data) ->
     << LinkType:32/little, Data/binary>>.
 
 
