@@ -6,6 +6,7 @@
 %% @end
 %%%-------------------------------------------------------------------
 -module(enet_ipv4).
+-compile(native).
 
 %% API
 -export([decode_addr/1, encode_addr/1

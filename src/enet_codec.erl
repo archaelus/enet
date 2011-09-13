@@ -6,6 +6,7 @@
 %% @end
 %%%-------------------------------------------------------------------
 -module(enet_codec).
+-compile(native).
 
 %% API
 -export([module/1
