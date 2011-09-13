@@ -89,7 +89,10 @@ read_file(FileName, Opts) ->
             read_file(FileName)
     end.
 
-
+-spec file_foldl(FileName::string(),
+                 fun ((#pcap_hdr{}, #pcap_pkt{}, Acc) -> Acc),
+                 Acc) ->
+                        Acc.
 file_foldl(FileName, FoldFun, Acc0)
   when is_function(FoldFun, 3) ->
     {ok, File} = file:open(FileName, [binary, read, raw]),
@@ -108,6 +111,9 @@ file_foldl(Header, File, FoldFun, Acc0)
             file_foldl(Header, File, FoldFun, Acc)
     end.
 
+-spec foreach_file_packets(Filename::string(),
+                           fun ( (#pcap_hdr{}, #pcap_pkt{}) -> any())) ->
+                                  any().
 foreach_file_packets(Filename, Fun) when is_function(Fun) ->
     {ok, File} = file:open(Filename, [binary, read, raw]),
     {ok, Hdr} = file:read(File, ?PCAP_HDR_SIZE),
