@@ -282,19 +282,15 @@ decode_packet(little,
                 TS_USecs:32/little,
                 PktLen:32/little,
                 OrigLen:32/little,
-                Data:PktLen/binary,
-                RestPacket/binary>>) ->
-    Pcap = #pcap_pkt{ts={TS_Secs,TS_USecs},orig_len=OrigLen},
-    {Pcap,Data,RestPacket};
+                Data:PktLen/binary>>) ->
+    #pcap_pkt{ts={TS_Secs,TS_USecs},orig_len=OrigLen,data=Data};
 decode_packet(big,
               <<TS_Secs:32/big,
                 TS_USecs:32/big,
                 PktLen:32/big,
                 OrigLen:32/big,
-                Data:PktLen/binary,
-                RestPacket/binary>>) ->
-    Pcap = #pcap_pkt{ts={TS_Secs,TS_USecs},orig_len=OrigLen},
-    {Pcap,Data,RestPacket}.
+                Data:PktLen/binary>>) ->
+    #pcap_pkt{ts={TS_Secs,TS_USecs},orig_len=OrigLen,data=Data}.
 
 encode_packet(#pcap_hdr{endianness=End}, #pcap_pkt{} = P) ->
     encode_packet(End, P);
