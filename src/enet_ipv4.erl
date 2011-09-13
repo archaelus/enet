@@ -10,15 +10,21 @@
 %% API
 -export([decode_addr/1, encode_addr/1
          ,pseudo_hdr/1
-         ,decode/2
-         ,encode/1, expand/1
+         ,expand/1
          ,decode_protocol/1, encode_protocol/1
          ,header_checksum/1
          ,addr_len/0
          ,addr_to_list/1, list_to_addr/1
         ]).
 
--export([payload/1, payload_type/1]).
+%% API
+-behavior(enet_codec).
+-export([decode/2
+         ,payload/2
+         ,payload_type/2
+         ,encode/2
+         ,default_options/0
+        ]).
 
 -include("enet_types.hrl").
 -define(IP_VERSION, 4).
@@ -118,7 +124,7 @@ encode(#ipv4{vsn=?IP_VERSION,
              src=SrcIP,
              dst=DestIP,
              options=Options,
-             data=Data})
+             data=Data}, _)
   when is_integer(HLen), is_integer(DiffServ),
        is_integer(TotLen), is_integer(ID),
        is_bitstring(Flags), is_integer(FragOff), is_integer(TTL),
@@ -130,8 +136,8 @@ encode(#ipv4{vsn=?IP_VERSION,
     <<?IP_VERSION:4, HLen:4, DiffServ:8, TotLen:16,
      ID:16, Flags:3/bits, FragOff:13, TTL:8, Proto:8, HdrChkSum:16,
      SrcIP:4/binary, DestIP:4/binary, RestDgram/binary>>;
-encode(Pkt) ->
-    encode(expand(Pkt)).
+encode(Pkt, Options) ->
+    encode(expand(Pkt), Options).
 
 addr_len() -> 4.
 
@@ -546,8 +552,9 @@ encode_protocol(sctp)          -> 132;
 encode_protocol(fc)            -> 133;
 encode_protocol(divert)        -> 254.
 
-payload_type(#ipv4{proto=P}) -> P.
-payload(#ipv4{data=D}) -> D.
+payload_type(#ipv4{proto=P}, _) -> P.
+payload(#ipv4{data=D}, _) -> D.
+default_options() -> [].
 
 
 %%====================================================================
