@@ -8,12 +8,18 @@
 -module(enet_eth).
 
 %% API
--export([decode/2, encode/1,
-         decode_type/1, encode_type/1,
+-behavior(enet_codec).
+-export([decode/2
+         ,payload/2
+         ,payload_type/2
+         ,encode/2
+         ,default_options/0
+        ]).
+
+%% API
+-export([decode_type/1, encode_type/1,
          decode_addr/1, encode_addr/1,
          addr_len/0]).
-
--export([payload/1, payload_type/1]).
 
 -include("enet_types.hrl").
 
@@ -31,16 +37,19 @@ decode(<<Dest:6/binary,
 decode(_Frame, _) ->
     {error, bad_packet}.
 
-encode(P = #eth{src=Src}) when not is_binary(Src) ->
-    encode(P#eth{src=encode_addr(Src)});
-encode(P = #eth{dst=Dest}) when not is_binary(Dest) ->
-    encode(P#eth{dst=encode_addr(Dest)});
-encode(P = #eth{type=Type, data=Data}) when is_atom(Type), is_tuple(Data) ->
-    encode(P#eth{type=encode_type(Type), data=enet_codec:encode(Type,Data)});
-encode(P = #eth{type=Type}) when is_atom(Type) ->
-    encode(P#eth{type=encode_type(Type)});
+encode(P = #eth{src=Src}, Opts) when not is_binary(Src) ->
+    encode(P#eth{src=encode_addr(Src)}, Opts);
+encode(P = #eth{dst=Dest}, Opts) when not is_binary(Dest) ->
+    encode(P#eth{dst=encode_addr(Dest)}, Opts);
+encode(P = #eth{type=Type, data=Data}, Opts)
+  when is_atom(Type), is_tuple(Data) ->
+    encode(P#eth{type=encode_type(Type),
+                 data=enet_codec:encode(Type, Data, Opts)},
+          Opts);
+encode(P = #eth{type=Type}, Opts) when is_atom(Type) ->
+    encode(P#eth{type=encode_type(Type)}, Opts);
 
-encode(#eth{src=Src,dst=Dest,type=Type,data=Data})
+encode(#eth{src=Src,dst=Dest,type=Type,data=Data}, _)
   when is_binary(Src), is_binary(Dest), is_integer(Type), is_binary(Data) ->
     <<Dest:6/binary,
      Src:6/binary,
@@ -49,8 +58,10 @@ encode(#eth{src=Src,dst=Dest,type=Type,data=Data})
 % IOList form.
 %    [ Src, Dest, << encode_type(Type):16/big>>, Data ].
 
-payload_type(#eth{type=T}) -> T.
-payload(#eth{data=D}) -> D.
+payload_type(#eth{type=T}, _) -> T.
+payload(#eth{data=D}, _) -> D.
+
+default_options() -> [].
 
 %%====================================================================
 %% Internal functions
