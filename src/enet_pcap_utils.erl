@@ -9,7 +9,7 @@
 
 -export([tcp_packet_array/1
          ,tcp_flows/1
-         ,tcp_flow_parts/3
+         ,tcp_flow_parts/2
          ,tcp_flow/1
          ,tcp_establishment_times/1
         ]).
@@ -34,14 +34,14 @@
 -spec read_tcp_streams(FileName::string()) -> [tcp_stream()].
 read_tcp_streams(File) ->
     {PacketArray, _Count} = tcp_packet_array(File),
-    FlowIdxs = tcp_flows(PacketArray),
+    FlowIdxParts = tcp_flows(PacketArray),
     [begin
          {A = {Af,_AIdxs}, B = {Bf,_BIdxs}} =
-             tcp_flow_parts(Flow, Idxs, PacketArray),
+             tcp_flow_parts(FlowIdxPart, PacketArray),
          {{Af, read_tcp_stream(A, PacketArray)},
           {Bf, read_tcp_stream(B, PacketArray)}}
      end
-     || {Flow, Idxs} <- FlowIdxs ].
+     || FlowIdxPart <- FlowIdxParts ].
 
 -spec tcp_packet_array(File::string()) -> {packet_array(),
                                            Count::non_neg_integer()}.
@@ -82,17 +82,21 @@ tcp_flow_sort(Pkt) ->
             {erlang:min(A, B), erlang:max(A, B)}
     end.
 
--spec tcp_flow_parts({Forward::tcp_flow(),Reverse::tcp_flow()},
-                     [Idx::non_neg_integer()],
+-spec tcp_flow_parts(tcp_idx_part(),
                      packet_array()) -> tcp_stream_idxs().
-tcp_flow_parts({A,B}, Idxs, PacketArray) ->
-    { {{A, B},
+tcp_flow_parts({Forward, Idxs}, PacketArray) ->
+    Reverse = tcp_flow_reverse(Forward),
+    { {Forward,
        [ I || I <- Idxs,
-              tcp_flow(packet(I, PacketArray)) =:= {A,B} ]},
-      {{B, A},
+              tcp_flow(packet(I, PacketArray)) =:= Forward ]},
+      {Reverse,
        [ I || I <- Idxs,
-              tcp_flow(packet(I, PacketArray)) =:= {B,A} ]}
+              tcp_flow(packet(I, PacketArray)) =:= Reverse ]}
     }.
+
+-spec tcp_flow_reverse(tcp_flow()) -> tcp_flow().
+tcp_flow_reverse({A,B}) ->
+    {B, A}.
 
 -spec tcp_flow(packet()) -> tcp_flow() | 'not_tcp'.
 tcp_flow(#null{type = T, data = Pkt}) when T =:= ipv4;
