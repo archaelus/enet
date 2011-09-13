@@ -8,6 +8,15 @@
 -include_lib("kernel/include/file.hrl").
 -include("enet_pcap.hrl").
 
+-behavior(enet_codec).
+
+-export([decode/2
+         ,payload/2
+         ,payload_type/2
+         ,encode/2
+         ,default_options/0
+        ]).
+
 -export([foreach_file_packets/2
          ,read_file/1
          ,read_file/2
@@ -42,6 +51,24 @@
 %%====================================================================
 %% API
 %%====================================================================
+
+decode(Data, #pcap_hdr{endianness=Endianness}) ->
+    {_Pcap, Data, _Rest} = decode_packet(Endianness, Data),
+    Data.
+
+payload_type(_, #pcap_hdr{datalinktype=LinkType})
+  when is_integer(LinkType) ->
+    decode_linktype(LinkType);
+payload_type(_, #pcap_hdr{datalinktype=LinkType}) ->
+    LinkType.
+
+payload(#pcap_pkt{data=Data}, _Opts) -> Data.
+
+encode(#pcap_pkt{} = Pkt, #pcap_hdr{endianness=Endianness}) ->
+    encode_packet(Endianness, Pkt).
+
+default_options() ->
+    default_header().
 
 read_file(FileName) ->
     file_foldl(FileName,
