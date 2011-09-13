@@ -24,4 +24,4 @@ udp_encode_test() ->
                   69,80,70,72,70,68,69,70,70,80,70,80,65,
                   67,65,66,0,0,32,0,1>>}}},
     ?assertMatch(ReEncoded when ReEncoded =:= WireData,
-                 enet_codec:encode(eth, Packet)).
+                 enet_codec:encode(eth, Packet, [])).
