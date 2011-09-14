@@ -48,7 +48,7 @@ decode_term(<<99, Float:31/binary, Rest/binary>>) ->
     {list_to_float(binary_to_list(Float)), Rest};
 decode_term(<<100, Len:16/big, Atom:Len/binary, Rest/binary>>) ->
     {try erlang:binary_to_existing_atom(Atom, latin1)
-     catch exit:badarg ->
+     catch error:badarg ->
              {atom, Atom}
      end,
      Rest};
