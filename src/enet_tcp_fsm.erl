@@ -31,15 +31,14 @@
 -spec init(TS::non_neg_integer(), #tcp{}) -> #tcp_stream{}.
 init(TS, #tcp{syn=true, seq_no=ISN, data= D}) ->
     #tcp_stream{isn=ISN, start_time=TS,
-                data = [{0, 0, D}],
+                data = [{0, TS, D}],
                 state = established}.
 
 update(TS, Pkt = #tcp{seq_no = S, data = Data},
-       S0 = #tcp_stream{start_time=STS, isn=ISN,
+       S0 = #tcp_stream{isn=ISN,
                         data=Acc, state=established}) ->
     RelativeSN = S - ISN,
-    RelativeTS = TS - STS,
-    S1 = S0#tcp_stream{data = [{RelativeSN, RelativeTS, Data} | Acc]},
+    S1 = S0#tcp_stream{data = [{RelativeSN, TS, Data} | Acc]},
     case Pkt#tcp.fin orelse Pkt#tcp.rst of
         true ->
             S1#tcp_stream{state=finished};
@@ -56,8 +55,8 @@ reassemble(#tcp_stream{data = Data}) ->
                 {<<>>, []},
                 Data).
 
-reassemble({0, 0, Data}, {<<>>, []}) ->
-    {Data, [{0, syn, 0, 0}]};
+reassemble({0, TS, Data}, {<<>>, []}) ->
+    {Data, [{TS, syn, 0, 0}]};
 reassemble({RSN, RTS, Data}, {Stream, Offsets})
   when is_integer(RSN), is_integer(RTS),
        is_binary(Data), is_binary(Stream),
