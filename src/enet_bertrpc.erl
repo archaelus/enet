@@ -34,7 +34,7 @@ decode(<<Length:32/big, Data:Length/binary, Tail/binary>>) ->
     {complete, Term, <<Rest/binary, Tail/binary>>};
 decode(<<Length:32/big, Partial/binary>>) ->
     {partial, (Length - byte_size(Partial)) + 4};
-decode(<<Huh/binary>>) ->
+decode(Huh) when is_binary(Huh) ->
     {partial, 4 - byte_size(Huh)}.
 
 decode_bertrpc(<<131,Data/binary>>) ->
