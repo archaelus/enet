@@ -11,6 +11,9 @@
 -export([init/2
          ,update/3
          ,reassemble/1
+         ,finished/1
+         ,relative_time/2
+         ,analyze/2
         ]).
 
 -include("enet_types.hrl").
@@ -74,6 +77,39 @@ reassemble({RSN, RTS, Data}, {Stream, Offsets})
              [{RTS, missing_packet, DataOffset,
                DataOffset+byte_size(Data)} | Offsets]}
     end.
+
+finished(#tcp_stream{state=S}) -> S =:= finished.
+
+relative_time(TS, #tcp_stream{start_time=T0}) ->
+    TS - T0.
+
+analyze(Module, #tcp_stream{} = S) ->
+    analyze(Module, reassemble(S), 0).
+
+analyze(Module, {Stream, Offsets}, Idx) when Idx < byte_size(Stream) ->
+    <<_:Idx/binary, Buf/binary>> = Stream,
+    case Module:decode(Buf) of
+        {complete, Term, Rest} ->
+            NewIdx = byte_size(Stream) - byte_size(Rest),
+            IdxRange = {Idx, NewIdx - 1},
+            [{Term, IdxRange, analyze_timing(IdxRange, Offsets)}
+             | analyze(Module, {Stream, Offsets}, NewIdx)];
+        {partial, _BytesNeeded} ->
+            IdxRange = {Idx, byte_size(Stream)},
+            [{partial, IdxRange, analyze_timing(IdxRange, Offsets)}]
+    end;
+analyze(_, _, _) -> [].
+
+
+analyze_timing({StartIdx, StopIdx}, Offsets) ->
+    StartTS = lists:min(ts_range(StartIdx, Offsets)),
+    EndTS = lists:max(ts_range(StopIdx, Offsets)),
+    {StartTS, EndTS - StartTS}.
+
+ts_range(Idx, Offsets) ->
+    [ TS || {TS, _, I, J} <- Offsets,
+            I =< Idx,
+            Idx =< J ].
 
 %%====================================================================
 %% Internal functions
