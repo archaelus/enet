@@ -7,6 +7,8 @@
 %%%-------------------------------------------------------------------
 -module(enet_tcp_fsm).
 
+-compile(native).
+
 %% API
 -export([init/2
          ,update/3
