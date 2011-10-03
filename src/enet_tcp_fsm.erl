@@ -28,16 +28,20 @@
                      data = [] :: [{RSN::non_neg_integer(),
                                     TS::non_neg_integer(),
                                     Data::binary()}],
-                     state = closed :: 'closed' | 'established' | 'error'
+                     state = closed :: 'closed' | 'established' |
+                                       'error' | 'finished'
                     }).
 
 -spec init(TS::non_neg_integer(), #tcp{}) -> #tcp_stream{}.
 init(TS, #tcp{syn=true, seq_no=ISN, data= D}) ->
     #tcp_stream{isn=ISN, start_time=TS,
                 data = [{0, TS, D}],
-                state = established}.
+                state = established};
+init(_TS, #tcp{}) ->
+    #tcp_stream{state = error}.
 
-update(TS, Pkt = #tcp{seq_no = S, data = Data},
+
+update(TS, Pkt = #tcp{seq_no = S, data = Data, ack = true},
        S0 = #tcp_stream{isn=ISN,
                         data=Acc, state=established}) ->
     RelativeSN = S - ISN,
@@ -58,6 +62,17 @@ reassemble(#tcp_stream{data = Data}) ->
                 {<<>>, []},
                 Data).
 
+-type tcp_segment() :: {RSN::non_neg_integer(),
+                        Timestamp::non_neg_integer(),
+                        Data::binary()}.
+
+-type offset_data() :: {Timestamp::non_neg_integer(),
+                        'syn' | 'normal' | 'retransmit' | 'missing_packet',
+                        StartIdx::non_neg_integer(),
+                        StopIdx::non_neg_integer()}.
+
+-spec reassemble(tcp_segment(), {Data::binary(), [offset_data()]}) ->
+                        {Data::binary(), [offset_data()]}.
 reassemble({0, TS, Data}, {<<>>, []}) ->
     {Data, [{TS, syn, 0, 0}]};
 reassemble({RSN, RTS, Data}, {Stream, Offsets})
@@ -83,23 +98,35 @@ finished(#tcp_stream{state=S}) -> S =:= finished.
 relative_time(TS, #tcp_stream{start_time=T0}) ->
     TS - T0.
 
+-spec analyze(Module::atom(), #tcp_stream{}) ->
+                     {'error', 'broken_stream'} |
+                     {[{Message::term(),
+                        {StartIdx::non_neg_integer(),
+                         StopIdx::non_neg_integer()},
+                        {StartTime::non_neg_integer(),
+                         Duration::non_neg_integer()}}],
+                      Oddballs::[{Timestamp::non_neg_integer(),
+                                  'retransmit' | 'missing_packet'}]}.
+analyze(_, #tcp_stream{state=error}) ->
+    {error, broken_stream};
 analyze(Module, #tcp_stream{} = S) ->
-    analyze(Module, reassemble(S), 0).
+    Stream = {_, Offsets} = reassemble(S),
+    {analyze_timings(Module, Stream, 0),
+     oddballs(Offsets)}.
 
-analyze(Module, {Stream, Offsets}, Idx) when Idx < byte_size(Stream) ->
+analyze_timings(Module, {Stream, Offsets}, Idx) when Idx < byte_size(Stream) ->
     <<_:Idx/binary, Buf/binary>> = Stream,
     case Module:decode(Buf) of
         {complete, Term, Rest} ->
             NewIdx = byte_size(Stream) - byte_size(Rest),
             IdxRange = {Idx, NewIdx - 1},
             [{Term, IdxRange, analyze_timing(IdxRange, Offsets)}
-             | analyze(Module, {Stream, Offsets}, NewIdx)];
+             | analyze_timings(Module, {Stream, Offsets}, NewIdx)];
         {partial, _BytesNeeded} ->
             IdxRange = {Idx, byte_size(Stream)},
             [{partial, IdxRange, analyze_timing(IdxRange, Offsets)}]
     end;
-analyze(_, _, _) -> [].
-
+analyze_timings(_, _, _) -> [].
 
 analyze_timing({StartIdx, StopIdx}, Offsets) ->
     StartTS = lists:min(ts_range(StartIdx, Offsets)),
@@ -111,6 +138,9 @@ ts_range(Idx, Offsets) ->
             I =< Idx,
             Idx =< J ].
 
+oddballs(Offsets) ->
+    [ {TS, Type} || {TS, Type, _, _} <- Offsets,
+                    Type =/= normal, Type =/= syn ].
 %%====================================================================
 %% Internal functions
 %%====================================================================
