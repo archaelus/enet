@@ -161,7 +161,7 @@ read_tcp_stream({{Src, Dst}, [P0Idx | Idxs]}, PacketArray) ->
 
 -record(tcp_stream, {flow, start_time, isn, data = []}).
 rts_init(S, D, TS, P0) ->
-    case enet_codec:extract(tcp, P0) of
+    case enet_codec:extract(tcp, P0, [{decode_types, all}]) of
         #tcp{syn=true, seq_no=ISN, data= <<>>} ->
             #tcp_stream{flow={S,D}, isn=ISN, start_time=TS,
                         data = []};
@@ -170,7 +170,8 @@ rts_init(S, D, TS, P0) ->
     end.
 
 rts_update(P, S0 = #tcp_stream{isn=ISN, data=Acc}) ->
-    #tcp{seq_no = S, data = Data} = Pkt = enet_codec:extract(tcp, P),
+    #tcp{seq_no = S, data = Data} = Pkt =
+        enet_codec:extract(tcp, P, [{decode_types, all}]),
     RelativeSN = S - ISN,
     S1 = S0#tcp_stream{data = [{RelativeSN, Data} | Acc]},
     case Pkt#tcp.fin orelse Pkt#tcp.rst of
