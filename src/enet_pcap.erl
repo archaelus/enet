@@ -53,8 +53,7 @@
 %%====================================================================
 
 decode(Data, #pcap_hdr{endianness=Endianness}) ->
-    {_Pcap, Data, _Rest} = decode_packet(Endianness, Data),
-    Data.
+    decode_packet(Endianness, Data).
 
 payload_type(_, #pcap_hdr{datalinktype=LinkType})
   when is_integer(LinkType) ->
