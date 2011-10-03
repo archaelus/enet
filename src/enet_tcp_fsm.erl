@@ -77,21 +77,21 @@ reassemble(#tcp_stream{data = Data}) ->
                         {Data::binary(), [offset_data()]}.
 reassemble({0, TS, Data}, {<<>>, []}) ->
     {Data, [{TS, syn, 0, 0}]};
-reassemble({RSN, RTS, Data}, {Stream, Offsets})
-  when is_integer(RSN), is_integer(RTS),
+reassemble({RSN, TS, Data}, {Stream, Offsets})
+  when is_integer(RSN), is_integer(TS),
        is_binary(Data), is_binary(Stream),
        is_list(Offsets) ->
     TargetSN = byte_size(Stream) + 1,
     if TargetSN =:= RSN ->
             {<<Stream/binary, Data/binary>>,
-             [{RTS, normal, RSN - 1, RSN+byte_size(Data) - 1} | Offsets]};
+             [{TS, normal, RSN - 1, RSN+byte_size(Data) - 1} | Offsets]};
        RSN < TargetSN ->
             {<<Stream:(RSN - 1)/binary, Data/binary>>,
-             [{RTS, retransmit, RSN - 1, RSN+byte_size(Data) - 1} | Offsets]};
+             [{TS, retransmit, RSN - 1, RSN+byte_size(Data) - 1} | Offsets]};
        RSN > TargetSN ->
             DataOffset = RSN - TargetSN,
             {<<Stream/binary, 0:DataOffset/integer-unit:8, Data/binary>>,
-             [{RTS, missing_packet, DataOffset,
+             [{TS, missing_packet, DataOffset,
                DataOffset+byte_size(Data)} | Offsets]}
     end.
 
