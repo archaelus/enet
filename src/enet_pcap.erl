@@ -21,6 +21,7 @@
          ,read_file/1
          ,read_file/2
          ,file_foldl/3
+         ,decode_file/2
          ]).
 
 -export([ decode_header/1
@@ -87,6 +88,18 @@ read_file(FileName, Opts) ->
         false ->
             read_file(FileName)
     end.
+
+decode_file(FileName, Types) ->
+    Pkts = file_foldl(FileName,
+                      fun (#pcap_hdr{datalinktype=T},
+                           #pcap_pkt{data=Pkt, ts=TS}, Acc) ->
+                              [{TS,
+                                enet_codec:decode(T, Pkt,
+                                                  [{decode_types, [T | Types]}])}
+                               | Acc]
+                      end,
+                      []),
+    lists:reverse(Pkts).
 
 -spec file_foldl(FileName::string(),
                  fun ((#pcap_hdr{}, #pcap_pkt{}, Acc) -> Acc),
