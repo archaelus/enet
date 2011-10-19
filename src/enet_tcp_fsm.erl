@@ -37,10 +37,10 @@
 -record(tcp_stream, {c2s = #part{} :: #part{},
                      s2c = #part{} :: #part{},
                      oddities = [],
-                     handshake = present :: 'present' | 'absent',
+                     handshake = absent :: 'present' | 'absent',
                      state = non_existent :: 'non_existent' | 'syn_sent' |
                                              'syn_received' | 'established' |
-                                             'closed'
+                                             'closed' | 'error'
                     }).
 
 -spec init() -> #tcp_stream{}.
