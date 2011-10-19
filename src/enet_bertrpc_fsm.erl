@@ -68,7 +68,7 @@ analyze_command(#cmd{type=Type,
     End = Stop+RDuration,
     CommandDuration = End - Start,
     ServerTime = Stop - Start - Duration,
-    {Type, MFA, Start, End, CommandDuration, ServerTime}.
+    {Type, MFA, Start, CommandDuration, ServerTime}.
 
 %%====================================================================
 %% Internal functions

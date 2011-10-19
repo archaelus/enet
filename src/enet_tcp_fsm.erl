@@ -15,8 +15,7 @@
          ,reassemble/1
          ,finished/1
          ,relative_time/2
-         ,analyze/3
-         ,acks/1
+         ,analyze/2
         ]).
 
 -include("enet_types.hrl").
@@ -27,75 +26,42 @@
 
 -record(tcp_stream, {start_time :: non_neg_integer(),
                      isn :: 0..4294967295,
-                     port :: port_no(),
                      %% Data holds packets in reverse order.
                      data = [] :: [{RSN::non_neg_integer(),
                                     TS::non_neg_integer(),
                                     Data::binary()}],
-                     acks = [] :: [{AckNo::non_neg_integer(),
-                                    TS::non_neg_integer()}],
                      state = closed :: 'closed' | 'established' |
-                                       'error' | 'finished',
-                     role :: 'client' | 'server'
+                                       'error' | 'finished'
                     }).
 
 -spec init(TS::non_neg_integer(), #tcp{}) -> #tcp_stream{}.
-init(TS, #tcp{syn=true, ack=false,
-              src_port=Port,
-              seq_no=ISN,
-              data= <<>>}) ->
+init(TS, #tcp{syn=true, seq_no=ISN, data= D}) ->
     #tcp_stream{isn=ISN, start_time=TS,
-                port=Port,
-                data = [],
-                state = established,
-                role = client};
-init(TS, Pkt = #tcp{syn=true, ack=true,
-                    src_port=Port,
-                    seq_no=ISN,
-                    data= <<>>}) ->
-    S = #tcp_stream{isn=ISN, start_time=TS,
-                    port=Port,
-                    data = [],
-                    state = established,
-                    role = server},
-    update_acks(TS, Pkt, S);
+                data = [{0, TS, D}],
+                state = established};
 init(_TS, #tcp{}) ->
     #tcp_stream{state = error}.
 
 
-update(TS, Pkt = #tcp{},
-       S0 = #tcp_stream{state=established}) ->
-    S1 = update_acks(TS, Pkt, S0),
-    S2 = update_data(TS, Pkt, S1),
-    maybe_finish(TS, Pkt, S2);
-update(TS, Pkt = #tcp{},
-       S = #tcp_stream{state=finished}) ->
-    update_acks(TS, Pkt, S);
-update(TS, Pkt, S) ->
-    erlang:error({bad_update, TS, Pkt, S}).
+update(TS, Pkt = #tcp{seq_no = S, data = Data, ack = true},
+       S0 = #tcp_stream{isn=ISN,
+                        data=Acc, state=established}) ->
+    RelativeSN = S - ISN,
+    S1 = S0#tcp_stream{data = [{RelativeSN, TS, Data} | Acc]},
+    case Pkt#tcp.fin orelse Pkt#tcp.rst of
+        true ->
+            S1#tcp_stream{state=finished};
+        false ->
+            S1
+    end;
+%% XXX - should warn about packets in other states.
+update(_TS, _Pkt, Stream = #tcp_stream{}) -> Stream.
 
 
-update_acks(TS, #tcp{ack=true, ack_no=AckNo},
-            S = #tcp_stream{acks=Acks}) ->
-    S#tcp_stream{acks=[{AckNo, TS} | Acks]}.
-
-update_data(TS, #tcp{ack=true, seq_no=SeqNo, data = Data},
-            S = #tcp_stream{isn=ISN, data=Acc})
-  when Data =/= <<>> ->
-    RelativeSN = SeqNo - ISN,
-    S#tcp_stream{data = [{RelativeSN, TS, Data} | Acc]};
-update_data(_TS, _PKT, S) -> S.
-
-maybe_finish(_TS, #tcp{fin=Fin, rst=Rst},
-             S = #tcp_stream{state=established}) when Fin; Rst ->
-    S#tcp_stream{state=finished};
-maybe_finish(_, _, S) -> S.
-
-
-reassemble(#tcp_stream{start_time=TS, data = Data}) ->
+reassemble(#tcp_stream{data = Data}) ->
     %% foldr because the packet list in Data needs to be reversed
     lists:foldr(fun reassemble/2,
-                {<<>>, [{TS, syn, 0, 0}]},
+                {<<>>, []},
                 Data).
 
 -type tcp_segment() :: {RSN::non_neg_integer(),
@@ -109,6 +75,8 @@ reassemble(#tcp_stream{start_time=TS, data = Data}) ->
 
 -spec reassemble(tcp_segment(), {Data::binary(), [offset_data()]}) ->
                         {Data::binary(), [offset_data()]}.
+reassemble({0, TS, Data}, {<<>>, []}) ->
+    {Data, [{TS, syn, 0, 0}]};
 reassemble({RSN, RTS, Data}, {Stream, Offsets})
   when is_integer(RSN), is_integer(RTS),
        is_binary(Data), is_binary(Stream),
@@ -129,71 +97,52 @@ reassemble({RSN, RTS, Data}, {Stream, Offsets})
 
 finished(#tcp_stream{state=S}) -> S =:= finished.
 
-acks(#tcp_stream{acks=Acks}) -> Acks.
-
 relative_time(TS, #tcp_stream{start_time=T0}) ->
     TS - T0.
 
--spec analyze(Module::atom(), #tcp_stream{}, [{Ack::non_neg_integer(),
-                                               TS::non_neg_integer()}]) ->
+-spec analyze(Module::atom(), #tcp_stream{}) ->
                      {'error', 'broken_stream'} |
                      {[{Message::term(),
                         {StartIdx::non_neg_integer(),
                          StopIdx::non_neg_integer()},
-                        {StartTS::non_neg_integer(),
+                        {StartTime::non_neg_integer(),
                          Duration::non_neg_integer()}}],
                       Oddballs::[{Timestamp::non_neg_integer(),
                                   'retransmit' | 'missing_packet'}]}.
-analyze(_, #tcp_stream{state=error}, _Acks) ->
+analyze(_, #tcp_stream{state=error}) ->
     {error, broken_stream};
-analyze(Module, #tcp_stream{} = S, Acks) ->
-    Relacks = relative_acks(Acks, S),
+analyze(Module, #tcp_stream{} = S) ->
     Stream = {_, Offsets} = reassemble(S),
-    {analyze(Module, Stream, 0, Relacks),
+    {analyze_timings(Module, Stream, 0),
      oddballs(Offsets)}.
 
-analyze(Module, {Stream, Offsets}, Idx, Relacks) when Idx < byte_size(Stream) ->
+analyze_timings(Module, {Stream, Offsets}, Idx) when Idx < byte_size(Stream) ->
     <<_:Idx/binary, Buf/binary>> = Stream,
     case Module:decode(Buf) of
         {complete, Term, Rest} ->
             NewIdx = byte_size(Stream) - byte_size(Rest),
             IdxRange = {Idx, NewIdx - 1},
-            [{Term, IdxRange, analyze_timing(IdxRange, Offsets, Relacks)}
-             | analyze(Module, {Stream, Offsets}, NewIdx, Relacks)];
+            [{Term, IdxRange, analyze_timing(IdxRange, Offsets)}
+             | analyze_timings(Module, {Stream, Offsets}, NewIdx)];
         {partial, _BytesNeeded} ->
             IdxRange = {Idx, byte_size(Stream)},
-            [{partial, IdxRange, analyze_timing(IdxRange, Offsets, Relacks)}]
+            [{partial, IdxRange, analyze_timing(IdxRange, Offsets)}]
     end;
-analyze(_, _, _, _) -> [].
+analyze_timings(_, _, _) -> [].
+
+analyze_timing({StartIdx, StopIdx}, Offsets) ->
+    StartTS = lists:min(ts_range(StartIdx, Offsets)),
+    EndTS = lists:max(ts_range(StopIdx, Offsets)),
+    {StartTS, EndTS - StartTS}.
+
+ts_range(Idx, Offsets) ->
+    [ TS || {TS, _, I, J} <- Offsets,
+            I =< Idx,
+            Idx =< J ].
 
 oddballs(Offsets) ->
     [ {TS, Type} || {TS, Type, _, _} <- Offsets,
                     Type =/= normal, Type =/= syn ].
-
-analyze_timing({StartIdx, StopIdx}, Offsets, Relacks) ->
-    StartTS = earliest_offset(StartIdx, Offsets),
-    EndTS = latest_ack(StopIdx, Relacks),
-    {StartTS, EndTS - StartTS}.
-
-earliest_offset(StartIdx, [{TS, _, I, J} | _])
-  when I =< StartIdx,
-       StartIdx =< J -> TS;
-earliest_offset(StartIdx, [_ | Rest]) ->
-    earliest_offset(StartIdx, Rest).
-
-latest_ack(StopIdx, Relacks) ->
-    MinAck = hd([ Ack || {Ack, _} <- Relacks,
-                         Ack >= StopIdx ]),
-    lists:max([ TS || {Ack, TS} <- Relacks,
-                      Ack =:= MinAck]).
-
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-relative_acks(Acks, #tcp_stream{isn=ISN}) ->
-    [{case AckNo > ISN of
-          true -> AckNo - ISN;
-          false -> AckNo + 16#ffffffff - ISN
-      end, TS}
-     || {AckNo, TS} <- Acks].
