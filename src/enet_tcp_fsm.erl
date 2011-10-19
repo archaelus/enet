@@ -19,6 +19,9 @@
          ,setup_timing/1
         ]).
 
+-export([combine/1
+        ]).
+
 -include("enet_types.hrl").
 
 %%====================================================================
@@ -140,6 +143,13 @@ reassemble_part({RSN, TS, Data}, {Stream, Offsets})
              [{TS, missing_packet, DataOffset,
                DataOffset+byte_size(Data)} | Offsets]}
     end.
+
+combine({C2S, S2C}) ->
+    lists:sort(fun ({_,_,{A,_}}, {_,_,{B,_}}) ->
+                       A =< B
+               end,
+               C2S ++ S2C).
+
 
 %%====================================================================
 %% Message Analysis.
