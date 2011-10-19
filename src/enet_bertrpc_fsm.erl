@@ -7,7 +7,7 @@
 %%%-------------------------------------------------------------------
 -module(enet_bertrpc_fsm).
 
--compile(native).
+%% -compile(native).
 
 %% API
 -export([init/0
@@ -20,7 +20,7 @@
               req, resp,
               timing}).
 
--record(bertrpc, {current = undefined :: #cmd{} | 'undefined',
+-record(bertrpc, {current = queue:new() :: queue:queue(#cmd{}) | 'undefined',
                   commands = [] :: list()}).
 
 %%====================================================================
@@ -30,23 +30,46 @@
 init() ->
     #bertrpc{}.
 
-update({{Type, M, F, A}, _, _} = Req, FSM = #bertrpc{current=undefined})
+update({{Type, M, F, A}, _, _} = Req, FSM = #bertrpc{current=Q})
   when Type =:= call; Type =:= cast ->
-    FSM#bertrpc{current=#cmd{type=Type, req=Req,
-                             mfa={M,F,length(A)}}};
+    Cmd = #cmd{type=Type, req=Req,
+               mfa={M,F,length(A)}},
+    FSM#bertrpc{current=queue:in(Cmd, Q)};
 update({{noreply},_,_} = Resp,
-       FSM = #bertrpc{current = Cmd = #cmd{type=cast}}) ->
-    complete_op(Cmd#cmd{resp=Resp}, FSM);
+       FSM = #bertrpc{current = Q0}) ->
+    case queue:out(Q0) of
+        {{value, Cmd = #cmd{type=cast}}, Q} ->
+            complete_op(Cmd#cmd{resp=Resp}, FSM#bertrpc{current=Q});
+        {{value, Cmd}, Q} ->
+            erlang:error({incorrect_response, Cmd, Resp});
+            %% error -- incorrect request for response
+            %% FSM#bertrpc{current=Q};
+        {empty, Q} ->
+            %% error -- no request for response
+            %%FSM#bertrpc{current=Q}
+            erlang:error({no_request, Resp})
+    end;
 update({{reply, _},_,_} = Resp,
-       FSM = #bertrpc{current = Cmd = #cmd{type=call}}) ->
-    complete_op(Cmd#cmd{resp=Resp}, FSM);
-update({_, _, _}, FSM = #bertrpc{current=undefined}) ->
-    %% XXX actually an error.
-    FSM.
+       FSM = #bertrpc{current = Q0}) ->
+    case queue:out(Q0) of
+        {{value, Cmd = #cmd{type=call}}, Q} ->
+            complete_op(Cmd#cmd{resp=Resp}, FSM#bertrpc{current=Q});
+        {{value, Cmd}, Q} ->
+            erlang:error({incorrect_response, Cmd, Resp});
+            %% error -- incorrect request for response
+            %% FSM#bertrpc{current=Q};
+        {empty, Q} ->
+            %% error -- no request for response
+            %%FSM#bertrpc{current=Q}
+            erlang:error({no_request, Resp})
+    end;
+update(Thing, FSM) ->
+    erlang:error({Thing, FSM}).
+
 
 
 complete_op(Cmd, FSM = #bertrpc{commands=Cmds}) ->
-    FSM#bertrpc{commands=[Cmd | Cmds], current=undefined}.
+    FSM#bertrpc{commands=[Cmd | Cmds]}.
 
 -type timestamp() :: non_neg_integer().
 -type duration() :: integer().
