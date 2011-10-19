@@ -64,6 +64,7 @@ update(TS, #tcp{syn=true, ack=true, data = <<>>,
                         s2c=S2CPart=#part{port=S2C}})
   when C2S_ACK =:= C2S_ISN + 1 ->
     S0#tcp_stream{state=established,
+                  handshake=present,
                   c2s=C2SPart#part{acks=[{0, TS}]},
                   s2c=S2CPart#part{isn=S2C_ISN,
                                    start_time=TS}};
