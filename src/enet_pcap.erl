@@ -286,23 +286,18 @@ encode_header(#pcap_hdr{version={VersionMajor, VersionMinor},
 %% PCAP packet parser/generator
 %%====================================================================
 
-decode_packet({#pcap_hdr{endianness=Endianness}, Data}) ->
-    decode_packet(Endianness, Data).
-
-decode_packet(little,
-              <<TS_Secs:32/little,
-                TS_USecs:32/little,
-                PktLen:32/little,
-                OrigLen:32/little,
-                Data:PktLen/binary>>) ->
-    #pcap_pkt{ts={TS_Secs,TS_USecs},orig_len=OrigLen,data=Data};
-decode_packet(big,
-              <<TS_Secs:32/big,
-                TS_USecs:32/big,
-                PktLen:32/big,
-                OrigLen:32/big,
-                Data:PktLen/binary>>) ->
-    #pcap_pkt{ts={TS_Secs,TS_USecs},orig_len=OrigLen,data=Data}.
+decode_packet(#pcap_hdr{endianness=Endianness}, Data) ->
+    <<TS_Secs:4/binary,
+      TS_USecs:4/binary,
+      PktLen:4/binary,
+      OrigLen:4/binary,
+      Rest/binary>> = Data,
+    Length = binary:decode_unsigned(PktLen, unsigned),
+    <<Packet:Length/binary>> = Rest,
+    #pcap_pkt{ts={binary:decode_unsigned(TS_Secs, Endianness),
+                  binary:decode_unsigned(TS_USecs, Endianness)},
+              orig_len=binary:decode_unsigned(OrigLen, Endianness),
+              data=Packet}.
 
 encode_packet(#pcap_hdr{endianness=End}, #pcap_pkt{} = P) ->
     encode_packet(End, P);
