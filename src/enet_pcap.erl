@@ -28,6 +28,7 @@
          ,encode_header/1
          ,default_header/0
          ,decode_packet/1
+         ,partial_decode/2
          ,encode_packet/2
          ,append_to_file/2
         ]).
@@ -55,6 +56,27 @@
 
 decode(Data, #pcap_hdr{endianness=Endianness}) ->
     decode_packet(Endianness, Data).
+
+partial_decode(Data, #pcap_hdr{})
+  when byte_size(Data) < 12 -> 12 - byte_size(Data);
+partial_decode(<<TS:4/binary, US:4/binary, Length:4/binary,
+                 Rest/binary>>,
+               #pcap_hdr{endianness=Endianness}) ->
+    Len = binary:decode_unsigned(Length, Endianness),
+    NeededBytes = Len + 4,
+    case byte_size(Rest) of
+        N when N >= NeededBytes ->
+            <<OrigLen:4/binary,
+              Pkt:Len/binary,
+              Leftover/binary>> = Rest,
+            {#pcap_pkt{ts={binary:decode_unsigned(TS, Endianness),
+                           binary:decode_unsigned(US, Endianness)},
+                       orig_len=binary:decode_unsigned(OrigLen, Endianness),
+                       data=Pkt},
+             Leftover};
+        N ->
+            NeededBytes - N
+    end.
 
 payload_type(_, #pcap_hdr{datalinktype=LinkType})
   when is_integer(LinkType) ->
