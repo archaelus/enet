@@ -310,19 +310,19 @@ encode_packet(little, #pcap_pkt{ts={TS_Secs,TS_USecs},
                                 orig_len=OrigLen,
                                 data=Data}) ->
     DataSize = byte_size(Data),
-    <<TS_Secs:32/little,
-     TS_USecs:32/little,
-     DataSize:32/little,
-     OrigLen:32/little,
+    <<TS_Secs:32/unsigned-little,
+     TS_USecs:32/unsigned-little,
+     DataSize:32/unsigned-little,
+     OrigLen:32/unsigned-little,
      Data/binary>>;
 encode_packet(big, #pcap_pkt{ts={TS_Secs,TS_USecs},
                              orig_len=OrigLen,
                              data=Data}) ->
     DataSize = byte_size(Data),
-    <<TS_Secs:32/big,
-     TS_USecs:32/big,
-     DataSize:32/big,
-     OrigLen:32/big,
+    <<TS_Secs:32/unsigned-big,
+     TS_USecs:32/unsigned-big,
+     DataSize:32/unsigned-big,
+     OrigLen:32/unsigned-big,
      Data/binary>>.
 
 
