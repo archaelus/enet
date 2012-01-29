@@ -7,7 +7,7 @@
 %%%-------------------------------------------------------------------
 -module(enet_tcp_fsm).
 
--compile(native).
+%% -compile(native).
 
 %% API
 -export([init/0
@@ -20,6 +20,7 @@
         ]).
 
 -export([combine/1
+         ,state/1
         ]).
 
 -include("enet_types.hrl").
@@ -72,14 +73,19 @@ update(TS, #tcp{syn=true, ack=true, data = <<>>,
                   s2c=S2CPart#part{isn=S2C_ISN,
                                    start_time=TS}};
 
-update(TS, Pkt = #tcp{syn=false, ack=true, fin=Fin}, S0) ->
+update(TS, Pkt = #tcp{syn=false, ack=true, fin=Fin},
+       S0 = #tcp_stream{state=established}) ->
     Direction = direction(Pkt, S0),
     update(Direction, TS, Pkt, S0);
 update(_TS, #tcp{rst=true}, S0) ->
     finish(S0);
 
-update(TS, Pkt, S0) ->
-    erlang:error({wasnt_expecting, TS, Pkt, S0}).
+update(_, _, S0 = #tcp_stream{state=error}) ->
+    S0;
+
+update(_TS, _Pkt, S0) ->
+    %% erlang:error({wasnt_expecting, TS, Pkt, S0}).
+    S0#tcp_stream{state=error}.
 
 finish(S) ->
     S.
@@ -112,6 +118,9 @@ update_data(TS, #tcp{data=Data, seq_no=SeqNo},
             P = #part{isn=ISN, data=Acc}) when byte_size(Data) > 0->
     P#part{data=[{relative_seq_no(SeqNo, ISN), TS, Data} | Acc]};
 update_data(_, _, P) -> P.
+
+state(#tcp_stream{state=S}) ->
+    S.
 
 %%====================================================================
 %% Stream reassembly
