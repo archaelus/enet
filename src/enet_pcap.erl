@@ -27,7 +27,6 @@
 -export([ decode_header/1
          ,encode_header/1
          ,default_header/0
-         ,decode_packet/1
          ,partial_decode/2
          ,encode_packet/2
          ,append_to_file/2
