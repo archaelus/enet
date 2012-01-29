@@ -40,11 +40,11 @@ update({{noreply},_,_} = Resp,
     case queue:out(Q0) of
         {{value, Cmd = #cmd{type=cast}}, Q} ->
             complete_op(Cmd#cmd{resp=Resp}, FSM#bertrpc{current=Q});
-        {{value, Cmd}, Q} ->
+        {{value, Cmd}, _Q} ->
             erlang:error({incorrect_response, Cmd, Resp});
             %% error -- incorrect request for response
             %% FSM#bertrpc{current=Q};
-        {empty, Q} ->
+        {empty, _Q} ->
             %% error -- no request for response
             %%FSM#bertrpc{current=Q}
             erlang:error({no_request, Resp})
@@ -54,11 +54,11 @@ update({{reply, _},_,_} = Resp,
     case queue:out(Q0) of
         {{value, Cmd = #cmd{type=call}}, Q} ->
             complete_op(Cmd#cmd{resp=Resp}, FSM#bertrpc{current=Q});
-        {{value, Cmd}, Q} ->
+        {{value, Cmd}, _Q} ->
             erlang:error({incorrect_response, Cmd, Resp});
             %% error -- incorrect request for response
             %% FSM#bertrpc{current=Q};
-        {empty, Q} ->
+        {empty, _Q} ->
             %% error -- no request for response
             %%FSM#bertrpc{current=Q}
             erlang:error({no_request, Resp})
