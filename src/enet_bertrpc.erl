@@ -11,6 +11,7 @@
 
 %% API
 -export([decode/1
+         ,decode_bertrpc/1
          ,decode_term/1
          ,encode/1
          ,round_trip/1
