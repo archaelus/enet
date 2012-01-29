@@ -44,15 +44,3 @@ oc16_check(Bin, Sum) ->
         16#FFFF -> correct; %% -0
         _ -> {incorrect, Sum}
     end.
-
-
-%%====================================================================
-%% Internal functions
-%%====================================================================
-
-oc_fmt(N) ->
-    <<Sign:1, Num:15>> = <<N:16>>,
-    case Sign of
-        0 -> integer_to_list(Num);
-        1 -> "-" ++ integer_to_list(Num)
-    end.
