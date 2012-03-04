@@ -117,7 +117,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({Port, {exit_status, N}}, S = #state{port=Port}) ->
-    {stop, {interface_shutdown, N}, S = #state{port=undefined}};
+    {stop, {interface_shutdown, N}, S#state{port=undefined}};
 handle_info({Port, {data, PortPacket}}, S = #state{port=Port}) ->
     case enet_tap:decode(PortPacket) of
         running ->
