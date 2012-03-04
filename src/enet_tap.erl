@@ -49,7 +49,7 @@ mtu(Device) ->
             integer_to_list(MTU);
         _ ->
             %% XXX Ignoring other mtu value, using arbitrary 'safe' mtu
-            2048
+            "2048"
     end.
 
 env() ->
