@@ -44,8 +44,13 @@ args(Device) when is_list(Device) ->
     end.
 
 mtu(Device) ->
-    {ok, Devopt} = inet:ifget(Device, [mtu]),
-    integer_to_list(proplists:get_value(mtu, Devopt)).
+    case inet:ifget(Device, [mtu]) of
+        {ok, [{mtu, MTU}]} ->
+            integer_to_list(MTU);
+        _ ->
+            %% XXX Ignoring other mtu value, using arbitrary 'safe' mtu
+            2048
+    end.
 
 env() ->
     case os:type() of
