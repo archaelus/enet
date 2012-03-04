@@ -80,6 +80,7 @@ if_config(Device, Options) when is_list(Device), is_list(Options) ->
             end
     end.
 
+%% Driver communication protocol
 decode(<<0>>) ->
     running;
 decode(<<1, Data/binary>>) ->
