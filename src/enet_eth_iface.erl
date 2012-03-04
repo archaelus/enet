@@ -161,7 +161,7 @@ handle_frame(Frame, S) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, S = #state{port=P}) when is_port(P) ->
-    enet_tap:close(P),
+    catch enet_tap:close(P),
     terminate(Reason, S#state{port=undefined});
 terminate(_Reason, _State) ->
     ok.
