@@ -71,7 +71,7 @@ void erl_input(struct bufferevent *ev, void *ud) {
 
     data_read = bufferevent_read(from_erlang, ep->buf, len);
     if (data_read != len) {
-        errx(2, "Wanted to read %zu bytes data but got %zu instead", len, data_read);
+        errx(2, "Wanted to read %u bytes data but got %zu instead", len, data_read);
     }
 
     //fprintf(stderr, "Writing %zu bytes from erlang to tap.\n", data_read);
