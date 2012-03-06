@@ -15,6 +15,7 @@
 #include <linux/if_tun.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <errno.h>
 #endif
 
 #define MAX_PACKET_SIZE 1500
@@ -219,6 +220,7 @@ int main(int argc, char **argv) {
                 ifr.ifr_name[IFNAMSIZ-1] = '\0';
 
                 if(ioctl(tap_fd, TUNSETIFF, (void *) &ifr) < 0 ){
+                    printf("ioctl failed! Errno [%s]", strerror(errno));
                     err(11, "Couldn't create device %s.", optarg);
                 }
             }
