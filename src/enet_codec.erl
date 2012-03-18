@@ -58,12 +58,15 @@ module(_) -> {error, unknown_packet_type}.
 
 decode(Type, Data, Options) ->
     TypesToDecode = proplists:get_value(decode_types, Options, [Type]),
-    true = TypesToDecode =:= all orelse lists:member(Type, TypesToDecode),
-    {Mod, MOpts} = mod_options(Type, Options),
-    true = Mod =/= error,
-    case Mod:decode(Data, MOpts) of
-        {error, _} -> Data;
-        Decoded -> Decoded
+    case TypesToDecode =:= all orelse lists:member(Type, TypesToDecode) of
+        true ->
+            {Mod, MOpts} = mod_options(Type, Options),
+            true = Mod =/= error,
+            case Mod:decode(Data, MOpts) of
+                {error, _} -> Data;
+                Decoded -> Decoded
+            end;
+        false -> Data
     end.
 
 encode(Type, Data, Options) ->
