@@ -131,11 +131,24 @@ reassemble(#tcp_stream{c2s=C2S, s2c=S2C}) ->
      reassemble_part(S2C)}.
 
 reassemble_part(#part{data=Data}) ->
-    lists:foldr(fun reassemble_part/2,
+    lists:foldr(fun reassemble/2,
                 {<<>>, []},
                 Data).
 
-reassemble_part({RSN, TS, Data}, {Stream, Offsets})
+-type tcp_segment() :: {RSN::non_neg_integer(),
+                        Timestamp::non_neg_integer(),
+                        Data::binary()}.
+
+-type offset_data() :: {Timestamp::non_neg_integer(),
+                        'syn' | 'normal' | 'retransmit' | 'missing_packet',
+                        StartIdx::non_neg_integer(),
+                        StopIdx::non_neg_integer()}.
+
+-spec reassemble(tcp_segment(), {Data::binary(), [offset_data()]}) ->
+                        {Data::binary(), [offset_data()]}.
+reassemble({0, TS, Data}, {<<>>, []}) ->
+    {Data, [{TS, syn, 0, 0}]};
+reassemble({RSN, TS, Data}, {Stream, Offsets})
   when is_integer(RSN), is_integer(TS),
        is_binary(Data), is_binary(Stream),
        is_list(Offsets) ->
