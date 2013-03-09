@@ -8,3 +8,4 @@ c_src/*.o
 misc/*
 priv/breakage/*
 .#*
+.edts
