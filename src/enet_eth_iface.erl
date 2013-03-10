@@ -72,6 +72,13 @@ handle_call(Call, _From, State) ->
     {noreply, State}.
 
 %% @private
+handle_cast({send, #eth{src = Src} = Pkt}, S = #state{mac = Mac}) ->
+    PktSrc = case Src of
+                 undefined -> Mac;
+                 _ -> Src
+             end,
+    Frame = enet_codec:encode(eth, Pkt#eth{src = PktSrc}, []),
+    handle_cast({send, #raw{data=Frame}}, S);
 handle_cast({send, #raw{data=Frame}}, S = #state{port=P})
   when is_port(P), is_binary(Frame) ->
     publish_tx(Frame, unknown, S),
