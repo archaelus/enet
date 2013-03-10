@@ -21,6 +21,9 @@
          decode_addr/1, encode_addr/1,
          addr_len/0]).
 
+-type address() :: << _:48 >>.
+-export_type([ address/0 ]).
+
 -include("enet_types.hrl").
 
 %%====================================================================
