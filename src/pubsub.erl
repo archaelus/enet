@@ -16,6 +16,7 @@
         ]).
 
 -export([sync_subscribe/1
+         ,sync_subscribe/2
          ,sync_unsubscribe/1
         ]).
 
@@ -40,6 +41,10 @@ new() ->
 sync_subscribe(Publisher) ->
     gen_server:call(Publisher, {?MODULE, {sub, self()}}).
 
+sync_subscribe(Publisher, Filter) when is_function(Filter, 1);
+                                       Filter =:= ?FILTER_ALL ->
+    gen_server:call(Publisher, {?MODULE, {sub, self(), Filter}}).
+
 sync_unsubscribe(Publisher) ->
     gen_server:call(Publisher, {?MODULE, {unsub, self()}}).
 
@@ -62,6 +67,8 @@ remove_subscriber(Pid, P = #pubsub{subscribers=Subs}) when is_pid(Pid) ->
 
 process_msg({sub, Pid}, P = #pubsub{}) ->
     add_subscriber(Pid, P);
+process_msg({sub, Pid, Filter}, P = #pubsub{}) ->
+    add_subscriber(Pid, Filter, P);
 process_msg({unsub, Pid}, P = #pubsub{}) ->
     remove_subscriber(Pid, P);
 process_msg({'DOWN', _, _, Pid, _}, P) ->
