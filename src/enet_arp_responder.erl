@@ -111,8 +111,8 @@ handle_cast(Msg, State) ->
 handle_info({enet, IF, {RX, _Frame, Pkt = #eth{type=arp}}}, State)
   when RX =:= rx;
        RX =:= promisc_rx ->
-    handle_arp_rx(IF, Pkt, State),
-    {noreply, State};
+    NewState = handle_arp_rx(IF, Pkt, State),
+    {noreply, NewState};
 
 
 handle_info(Info, State) ->
@@ -139,35 +139,40 @@ handle_arp_rx(IF, #eth{type=arp,data=Pkt}, State) ->
             handle_arp_request(IF, Q, State);
         _ ->
             ?INFO("Ignoring arp:~n~p", [Pkt]),
-            ignore
+            State
     catch
         Class:Error ->
             ?WARN("~p:~p while decoding~n~p~nStack:~p",
                   [Class, Error, Pkt, erlang:get_stacktrace()]),
             %% XXX - couldn't decode Pkt, Type:Error.
-            ignore
+            State
     end.
 
 handle_arp_request({enet_eth_iface, IF},
                    #arp{htype = ethernet,
                         ptype = ipv4,
                         op = request,
-                        sender = Sender = {SMac, _SAddr},
+                        sender = Sender = {SMac, SAddr},
                         target = {_TMac, TAddr}},
-                   #state{cache = Cache}) ->
+                   State = #state{cache = Cache}) ->
     case enet_arp_cache:lookup_ip_addr(TAddr, Cache) of
-        not_found -> ignore;
-        #entry{publish = false} -> ignore;
         #entry{publish = true,
                ethaddr = CMac,
-               ipaddr = CAddr} ->
+               ipaddr = TAddr} ->
             R = #arp{op = reply,
                      htype = ethernet,
                      ptype = ipv4,
-                     sender = {CMac, CAddr},
+                     sender = {CMac, TAddr},
                      target = Sender
                     },
             Reply = #eth{dst=SMac, type=arp,
                          data=enet_codec:encode(arp, R, [])},
-            enet_eth_iface:send(IF, Reply)
+            enet_eth_iface:send(IF, Reply),
+            State#state{cache = Cache};
+        _ when SAddr =:= TAddr ->
+            %% They're advertising themselves, so learn anyway. YOLO.
+            NewCache = enet_arp_cache:learn(SMac, SAddr, Cache),
+            State#state{cache = NewCache};
+        _ ->
+            State
     end.
