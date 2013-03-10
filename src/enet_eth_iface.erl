@@ -44,8 +44,11 @@ start_link(Device, IfConfig) when is_list(Device), is_list(IfConfig) ->
 start(Device, IfConfig) when is_list(Device), is_list(IfConfig) ->
     gen_server:start(?MODULE, [#state{dev=Device}, IfConfig], []).
 
-send(Interface, Data) ->
-    gen_server:cast(Interface, {send, Data}).
+
+send({?MODULE, Pid}, Data) ->
+    send(Pid, Data);
+send(Pid, Data) when is_pid(Pid) ->
+    gen_server:cast(Pid, {send, Data}).
 
 %%====================================================================
 %% gen_server callbacks
