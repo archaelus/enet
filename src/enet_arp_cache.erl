@@ -15,6 +15,7 @@
          ,lookup_ip_addr/2
          ,lookup_eth_addr/2
          ,publish/3
+         ,learn/3
          ]).
 
 -spec new() -> cache().
@@ -34,7 +35,15 @@ lookup_ip_addr(IpAddr, Cache) ->
     end.
 
 publish(EthAddr, IpAddr, Cache) ->
-    [#entry{ethaddr = EthAddr,
-            ipaddr = IpAddr,
-            publish = true}
-     | Cache].
+    replace(#entry{ethaddr = EthAddr,
+                   ipaddr = IpAddr,
+                   publish = true}, Cache).
+
+learn(EthAddr, IpAddr, Cache) ->
+    replace(#entry{ethaddr = EthAddr,
+                   ipaddr = IpAddr,
+                   publish = false}, Cache).
+
+replace(Entry = #entry{ethaddr = EthAddr}, Cache) ->
+    [Entry |
+     lists:keydelete(EthAddr, #entry.ethaddr, Cache)].
