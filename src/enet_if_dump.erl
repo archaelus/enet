@@ -105,8 +105,9 @@ print(Info, #state{print=Format}) ->
         error_logger:info_msg(Fmt, Args)
     catch
         C:E ->
-            error_logger:info_msg("Crashed ~p:~p",
-                                  [C,E])
+            error_logger:info_msg("Crashed ~p:~p~nStack: ~p~nInfo: ~p~n",
+                                  [C,E,
+                                   erlang:get_stacktrace(), Info])
     end.
 
 format(time, _Info, {Fmt, Args}) ->
