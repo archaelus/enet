@@ -23,7 +23,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--define(DEFAULT_MAC, <<16#00,16#00,16#00,16#aa,16#bb,16#cc>>).
+-define(DEFAULT_MAC, "00:00:00:AA:BB:CC").
 
 -record(state, {dev :: string(),
                 mac = ?DEFAULT_MAC :: ethernet_address(),
