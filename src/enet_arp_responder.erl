@@ -22,6 +22,7 @@
          ,ip_addr/2
          ,arp_filter/1
          ,publish/3
+         ,get_cache/1
          ]).
 
 %% gen_server callbacks
@@ -58,6 +59,9 @@ ip_addr(Pid, EthAddr) ->
 publish(Pid, EthAddr, IpAddr) ->
     gen_server:call(Pid, {publish, EthAddr, IpAddr}).
 
+get_cache(Pid) ->
+    gen_server:call(Pid, get_cache).
+
 arp_filter({enet, _, {rx, _, #eth{type=arp}}}) -> true;
 arp_filter(_) -> false.
 
@@ -70,6 +74,8 @@ init([]) ->
     {ok, #state{cache = enet_arp_cache:new()}}.
 
 %% @private
+handle_call(get_cache, _From, State = #state{cache = Cache}) ->
+    {reply, Cache, State};
 handle_call({publish, EthAddr, IpAddr}, _From,
             State = #state{cache = OldCache}) ->
     NewCache = enet_arp_cache:publish(EthAddr, IpAddr, OldCache),
