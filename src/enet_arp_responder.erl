@@ -17,6 +17,7 @@
 %% API
 -export([start/0]).
 -export([attach/1
+         ,attach/2
          ,eth_addr/2
          ,ip_addr/2
          ,arp_filter/1
