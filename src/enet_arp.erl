@@ -8,7 +8,7 @@
 -module(enet_arp).
 
 %% API
--export([decode/2, encode/1]).
+-export([decode/2, encode/2]).
 
 -include("enet_types.hrl").
 
@@ -36,24 +36,26 @@ decode(_Packet, _DecodeOpts) ->
 
 encode(P = #arp{htype=ethernet,
                 sender={SndrHAddr, SndrPAddr},
-                target={TargHAddr, TargPAddr}}) ->
+                target={TargHAddr, TargPAddr}}, Options) ->
     encode(P#arp{htype=encode_htype(ethernet),
                  haddrlen=(enet_codec:module(ethernet)):addr_len(),
                  sender={(enet_codec:module(ethernet)):encode_addr(SndrHAddr), SndrPAddr},
-                 target={(enet_codec:module(ethernet)):encode_addr(TargHAddr), TargPAddr}});
+                 target={(enet_codec:module(ethernet)):encode_addr(TargHAddr), TargPAddr}},
+           Options);
 encode(P = #arp{ptype=ipv4,
                 sender={SndrHAddr, SndrPAddr},
-                target={TargHAddr, TargPAddr}}) ->
+                target={TargHAddr, TargPAddr}}, Options) ->
     encode(P#arp{ptype=encode_ptype(ipv4),
                  paddrlen=(enet_codec:module(ipv4)):addr_len(),
                  sender={SndrHAddr, (enet_codec:module(ipv4)):encode_addr(SndrPAddr)},
-                 target={TargHAddr, (enet_codec:module(ipv4)):encode_addr(TargPAddr)}});
+                 target={TargHAddr, (enet_codec:module(ipv4)):encode_addr(TargPAddr)}},
+           Options);
 
 encode(#arp{htype=HType, ptype=PType,
             haddrlen=HAddrLen, paddrlen=PAddrLen,
             op=Oper,
             sender={SndrHAddr, SndrPAddr},
-            target={TargHAddr, TargPAddr}})
+            target={TargHAddr, TargPAddr}}, _Options)
   when is_integer(HType), is_integer(PType),
        byte_size(SndrHAddr) =:= byte_size(TargHAddr),
        byte_size(SndrHAddr) =:= HAddrLen,
@@ -83,4 +85,3 @@ encode_htype(ethernet) -> 1.
 
 decode_ptype(P) -> enet_eth:decode_type(P).
 encode_ptype(P) -> enet_eth:encode_type(P).
-    
