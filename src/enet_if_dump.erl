@@ -98,10 +98,16 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 print(Info, #state{print=Format}) ->
-    {Fmt, Args} = lists:foldl(fun (FmtArg, Acc) -> format(FmtArg, Info, Acc) end,
-                              {"", []},
-                              Format),
-    error_logger:info_msg(Fmt, Args).
+    try
+        {Fmt, Args} = lists:foldl(fun (FmtArg, Acc) -> format(FmtArg, Info, Acc) end,
+                                  {"", []},
+                                  Format),
+        error_logger:info_msg(Fmt, Args)
+    catch
+        C:E ->
+            error_logger:info_msg("Crashed ~p:~p",
+                                  [C,E])
+    end.
 
 format(time, _Info, {Fmt, Args}) ->
     {_,_,Mics} = erlang:now(),
