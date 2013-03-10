@@ -59,7 +59,7 @@ handle_cast(Msg, State) ->
     {noreply, State}.
 
 handle_info({enet, _IF, {tx, Frame}}, State) ->
-    P = enet_codec:decode(eth, Frame, [all]),
+    P = enet_codec:decode(eth, Frame, [{decode_types, [all]}]),
     print([{dir, send}, {raw, Frame}, {packet, P}], State),
     {noreply, State};
 handle_info({enet, _IF, {RX, Frame}}, State)
