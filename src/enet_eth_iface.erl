@@ -17,6 +17,7 @@
 -export([start_link/2
          ,start/2
          ,send/2
+         ,default_mac/0
         ]).
 
 %% gen_server callbacks
@@ -49,6 +50,9 @@ send({?MODULE, Pid}, Data) ->
     send(Pid, Data);
 send(Pid, Data) when is_pid(Pid) ->
     gen_server:cast(Pid, {send, Data}).
+
+default_mac() ->
+    ?DEFAULT_MAC.
 
 %%====================================================================
 %% gen_server callbacks
