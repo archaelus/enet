@@ -110,7 +110,7 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 handle_frame(Frame, S) ->
-    case enet_codec:decode(eth, Frame, [eth]) of
+    try enet_codec:decode(eth, Frame, [{decode_types, [eth]}]) of
         E = #eth{dst=D} when D =:= S#state.mac; D =:= broadcast ->
             %% Frames destined for me.
             publish_rx(Frame, E, S);
@@ -120,6 +120,12 @@ handle_frame(Frame, S) ->
         Frame when S#state.promisc =:= true ->
             publish_rx(Frame, unknown, S);
         _ ->
+            drop_frame
+    catch
+        Class:Ex ->
+            ?INFO("~p:~p~nStack: ~p~nFrame:~p",
+                  [Class, Ex, erlang:get_stacktrace(),
+                   Frame]),
             drop_frame
     end,
     {noreply, S}.
