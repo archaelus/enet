@@ -77,7 +77,9 @@ Starting Enet
 From an erlang shell (``erl -boot start_sasl -pa ebin``)::
 
     1> {ok, Pid} = enet_eth_iface:start("tap0", "192.168.2.1/24 up"),
-       {ok, Dumper} = enet_if_dump:attach(Pid).
+       {ok, Dumper} = enet_if_dump:attach(Pid),
+       {ok, Arp} = enet_arp_responder:attach(Pid),
+       enet_arp_responder:publish(Arp, <<0,0,0,16#aa,16#bb,16#cc>>, <<192,168,2,2>>).
 
 You should now see decoded traffic in the erlang shell. If you ping
 the IP address of the erlang interface ``192.168.2.2`` in the example,
