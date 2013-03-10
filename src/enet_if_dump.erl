@@ -58,8 +58,8 @@ handle_cast(Msg, State) ->
     ?WARN("Unexpected cast, ~p", [Msg]),
     {noreply, State}.
 
-handle_info({enet, _IF, {tx, Frame}}, State) ->
-    P = enet_codec:decode(eth, Frame, [{decode_types, [all]}]),
+handle_info({enet, _IF, {tx, Frame, _}}, State) ->
+    P = enet_codec:decode(eth, Frame, [{decode_types, all}]),
     print([{dir, send}, {raw, Frame}, {packet, P}], State),
     {noreply, State};
 handle_info({enet, _IF, {RX, Frame}}, State)
@@ -67,12 +67,12 @@ handle_info({enet, _IF, {RX, Frame}}, State)
        RX =:= promisc_rx ->
     print([{dir, recv}, {raw, Frame}], State),
     {noreply, State};
-handle_info({enet, _IF, {RX, Frame, Pkt}}, State)
+handle_info({enet, _IF, {RX, Frame, _Pkt}}, State)
   when RX =:= rx;
        RX =:= promisc_rx ->
     print([{dir, recv},
            {raw, Frame},
-           {packet, enet_codec:decode(eth, Frame, [all])}],
+           {packet, enet_codec:decode(eth, Frame, [{decode_types, all}])}],
           State),
     {noreply, State};
 handle_info(Msg, State) ->
