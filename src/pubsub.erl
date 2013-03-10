@@ -51,7 +51,8 @@ add_subscriber(Pid, Fn, P = #pubsub{subscribers=Subs})
        Fn =:= ?FILTER_ALL; is_function(Fn, 1) ->
     case subscribed(Pid, P) of
         false ->
-            P#pubsub{subscribers=[#sub{pid=Pid} | Subs]};
+            P#pubsub{subscribers=[#sub{pid=Pid,
+                                       filter = Fn} | Subs]};
         true ->
             P
     end.
