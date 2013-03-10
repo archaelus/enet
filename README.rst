@@ -76,10 +76,11 @@ Starting Enet
 
 From an erlang shell (``erl -boot start_sasl -pa ebin``)::
 
-    1> {ok, Pid} = enet_eth_iface:start("tap0", "192.168.2.1/24 up"),
-       {ok, Dumper} = enet_if_dump:attach(Pid),
-       {ok, Arp} = enet_arp_responder:attach(Pid),
-       enet_arp_responder:publish(Arp, <<0,0,0,16#aa,16#bb,16#cc>>, <<192,168,2,2>>).
+    1> {ok, Arp} = enet_arp_responder:start(),
+       enet_arp_responder:publish(Arp, enet_eth_iface:default_mac(),
+                                  <<192,168,2,2>>),
+       {ok, Eth} = enet_eth_iface:start("tap0", "192.168.2.1/24 up"),
+       {ok, Dumper} = enet_if_dump:attach(Pid).
 
 You should now see decoded traffic in the erlang shell. If you ping
 the IP address of the erlang interface ``192.168.2.2`` in the example,
@@ -87,20 +88,4 @@ you should see ping replies and an arp entry (``arp -na``)::
 
     ? (192.168.2.2) at 4a:6e:1:1b:19:8f on tap0 ifscope [ethernet]
 
-Debugging
-=========
-
-There are a number of debugging aides available:
-
-* enet_if_crtest -- Tries to re-encode decoded packets and writes
-  erlang and pcap trace files if this fails.::
-
-      1> enet_host:start(test_h),
-         enet_host:attach_iface(test_h, tap0, fun () -> enet_eth_iface:start("tap0", "192.168.2.1/24 up") end),
-         enet_host:attach(test_h, tap0, fun (Pid) -> enet_if_dump:attach(Pid) end),
-         enet_host:attach(test_h, tap0, fun (Pid) -> enet_arp_cache:attach(Pid) end).
-#         enet_if_arp:attach(Pid),
-#         enet_if_arp:add_entry(Pid, "4A:6E:01:1B:19:8F", "192.168.2.2"),
-#         enet_if_icmp:attach(Pid),
-#         enet_if_crtest:attach(Pid, "priv/breakage").
 
