@@ -62,7 +62,7 @@ decode(Type, Data, Options) ->
         true ->
             {Mod, MOpts} = mod_options(Type, Options),
             true = Mod =/= error,
-            case Mod:decode(Data, MOpts) of
+            case Mod:decode(Data, [{decode_types, TypesToDecode} | MOpts]) of
                 {error, _} -> Data;
                 Decoded -> Decoded
             end;
