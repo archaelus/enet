@@ -62,6 +62,8 @@ init([S = #state{dev=Device}, IfConfig]) ->
                  ,pubsub=pubsub:new()}}.
 
 %% @private
+handle_call({set_promisc, Bool}, _From, S = #state{}) when is_boolean(Bool) ->
+    {reply, Bool, S#state{promisc = Bool}};
 handle_call({pubsub, Op}, _From, S = #state{pubsub=P}) ->
     NewPub = pubsub:process_msg(Op, P),
     {reply, ok, S#state{pubsub=NewPub}};
