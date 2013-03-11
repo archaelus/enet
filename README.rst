@@ -80,12 +80,11 @@ From an erlang shell (``erl -boot start_sasl -pa ebin``)::
        enet_arp_responder:publish(Arp, enet_eth_iface:default_mac(),
                                   <<192,168,2,2>>),
        {ok, Eth} = enet_eth_iface:start("tap0", "192.168.2.1/24 up"),
-       {ok, Dumper} = enet_if_dump:attach(Pid).
+       {ok, Dumper} = enet_if_dump:attach(Eth),
+       enet_arp_responder:attach(Arp, Eth).
 
 You should now see decoded traffic in the erlang shell. If you ping
 the IP address of the erlang interface ``192.168.2.2`` in the example,
 you should see ping replies and an arp entry (``arp -na``)::
 
-    ? (192.168.2.2) at 4a:6e:1:1b:19:8f on tap0 ifscope [ethernet]
-
-
+    ? (192.168.2.2) at 0:0:0:aa:bb:cc on tap0 ifscope [ethernet]
