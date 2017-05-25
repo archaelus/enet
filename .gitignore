@@ -9,3 +9,5 @@ misc/*
 priv/breakage/*
 .#*
 .edts
+_build
+rebar.lock
