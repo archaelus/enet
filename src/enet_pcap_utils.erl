@@ -17,7 +17,7 @@
 -export([read_tcp_stream/2,
          read_tcp_streams/1]).
 
--type packet_array() :: array(). % array:array({timestamp(), packet()})
+-type packet_array() :: array:array({os:timestamp(), packet()}).
 -type packet() :: #null{} | #eth{} | #ipv4{} | #ipv6{} | #tcp{}.
 -type host_port() :: {ip_address() | undefined, netport() | undefined}.
 -type tcp_flow() :: {Src::host_port(), Dst::host_port()}.
