@@ -61,8 +61,10 @@ decode(Type, Data, Options) ->
     case TypesToDecode =:= all orelse lists:member(Type, TypesToDecode) of
         true ->
             {Mod, MOpts} = mod_options(Type, Options),
+            NewOpts = update_decode_types(MOpts,
+                                          {decode_types, TypesToDecode}),
             true = Mod =/= error,
-            case Mod:decode(Data, [{decode_types, TypesToDecode} | MOpts]) of
+            case Mod:decode(Data, NewOpts) of
                 {error, _} -> Data;
                 Decoded -> Decoded
             end;
@@ -162,3 +164,8 @@ mod_options(Type, Options) ->
                        catch _:_ -> Options end,
             {Mod, proplists:get_value(Mod, Options, Defaults)}
     end.
+
+update_decode_types(OptList, {decode_types, L})
+  when is_list(OptList) ->
+    proplists:delete(decode_types, OptList),
+    OptList ++ [{decode_types, L}].
