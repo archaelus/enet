@@ -17,7 +17,7 @@
         ]).
 
 %% gen_event callbacks
--export([init/1, handle_cast/2, handle_call/3, 
+-export([init/1, handle_cast/2, handle_call/3,
          handle_info/2, terminate/2, code_change/3]).
 
 -include("enet_types.hrl").
@@ -154,7 +154,8 @@ hexblock_lastline(Offset, Line) ->
     FullGroupSize = (Size div 2) * 2,
     LastGroupSize = (Size - FullGroupSize) * 8,
     <<FullGroup:FullGroupSize/binary, LastGroup:LastGroupSize>> = Line,
-    Groups = [ io_lib:format("~4.16.0b", [Group]) || << Group:16 >> <= FullGroup ],
+    Groups = [ io_lib:format("~4.16.0b", [Group])
+               || << Group:16 >> <= FullGroup ],
     JGroups = string:join(Groups, " "),
     case LastGroupSize of
         0 ->
