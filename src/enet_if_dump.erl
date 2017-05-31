@@ -138,7 +138,7 @@ format({hexblock, frame}, Info, {Fmt, Args}) ->
 hexblock(Bin) ->
     FullLineBytes = (byte_size(Bin) div 16) * 16,
     <<FullLines:FullLineBytes/binary, LastLine/binary>> = Bin,
-    Lines = [Line || <<Line:16/binary>> <= Bin ],
+    Lines = [Line || <<Line:16/binary>> <= FullLines ],
     NumberedLines = lists:zip(lists:seq(0, FullLineBytes-1, 16), Lines),
     [ [hexblock_line(Offset, Line) || {Offset, Line} <- NumberedLines],
      hexblock_lastline(FullLineBytes, LastLine)].
